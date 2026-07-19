@@ -19,13 +19,20 @@ import {
   LogOut,
   CheckCircle2,
   XCircle,
+  Settings,
+  Save,
+  GripVertical,
 } from 'lucide-react';
 import { supabase, type Category, type Product, type Variant, type Review } from '../lib/supabase';
 import { formatPrice } from '../lib/format';
 import { useAuth } from '../lib/auth';
+import {
+  adminGetSettings, adminUpdateSettings, adminListContent, adminUpsertContent, adminDeleteContent,
+  type SiteSettings, type SiteContent,
+} from '../lib/site';
 
 type Props = { onExit: () => void };
-type Tab = 'dashboard' | 'products' | 'categories' | 'orders' | 'reviews';
+type Tab = 'dashboard' | 'products' | 'categories' | 'orders' | 'reviews' | 'site';
 
 export default function AdminApp({ onExit }: Props) {
   const { adminUser, signOutAdmin } = useAuth();
@@ -111,6 +118,7 @@ export default function AdminApp({ onExit }: Props) {
             <TabBtn icon={<Tags className="h-4 w-4" />} label="Categories" active={tab === 'categories'} onClick={() => setTab('categories')} />
             <TabBtn icon={<Receipt className="h-4 w-4" />} label="Orders" active={tab === 'orders'} onClick={() => setTab('orders')} />
             <TabBtn icon={<MessageSquare className="h-4 w-4" />} label="Reviews" active={tab === 'reviews'} onClick={() => setTab('reviews')} />
+            <TabBtn icon={<Settings className="h-4 w-4" />} label="Site" active={tab === 'site'} onClick={() => setTab('site')} />
             <button
               onClick={handleAdminLogout}
               className="ml-1 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
@@ -141,8 +149,10 @@ export default function AdminApp({ onExit }: Props) {
           <CategoriesAdmin categories={categories} products={products} onChange={load} />
         ) : tab === 'orders' ? (
           <OrdersAdmin orders={orders} orderItems={orderItems} onChange={load} />
-        ) : (
+        ) : tab === 'reviews' ? (
           <ReviewsAdmin reviews={reviews} products={products} onChange={load} />
+        ) : (
+          <SiteAdmin />
         )}
       </main>
     </div>
@@ -946,6 +956,352 @@ function Select({ label, value, onChange, options }: { label: string; value: str
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
+    </div>
+  );
+}
+
+function SiteAdmin() {
+  const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [content, setContent] = useState<SiteContent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [section, setSection] = useState<'general' | 'hero' | 'footer' | 'features' | 'steps' | 'testimonials' | 'faq'>('general');
+  const [toast, setToast] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [s, c] = await Promise.all([adminGetSettings(), adminListContent()]);
+      setSettings(s);
+      setContent(c);
+    } catch (e: any) {
+      setToast(e.message || 'Failed to load');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const saveSettings = async () => {
+    if (!settings) return;
+    setSavingSettings(true);
+    try {
+      await adminUpdateSettings(settings);
+      setToast('Settings saved');
+    } catch (e: any) {
+      setToast(e.message || 'Failed to save');
+    }
+    setSavingSettings(false);
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  const sectionContent = (s: string) => content.filter((c) => c.section === s).sort((a, b) => a.sort_order - b.sort_order);
+
+  const upsert = async (row: Partial<SiteContent> & { section: string; title: string }) => {
+    try {
+      await adminUpsertContent(row);
+      await load();
+    } catch (e: any) {
+      setToast(e.message || 'Failed to save');
+    }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm('Delete this item?')) return;
+    try {
+      await adminDeleteContent(id);
+      await load();
+    } catch (e: any) {
+      setToast(e.message || 'Failed to delete');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="grid place-items-center py-20 text-slate-400">
+        <Loader2 className="h-7 w-7 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!settings) {
+    return <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">Failed to load settings. Make sure you are signed in as admin.</div>;
+  }
+
+  const subTabs: { id: typeof section; label: string }[] = [
+    { id: 'general', label: 'General' },
+    { id: 'hero', label: 'Hero' },
+    { id: 'footer', label: 'Footer' },
+    { id: 'features', label: 'Features' },
+    { id: 'steps', label: 'Steps' },
+    { id: 'testimonials', label: 'Testimonials' },
+    { id: 'faq', label: 'FAQ' },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-bold text-slate-900">Site content</h2>
+        <div className="flex gap-1 overflow-x-auto">
+          {subTabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setSection(t.id)}
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                section === t.id ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {toast && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+          {toast}
+        </div>
+      )}
+
+      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
+        Note: deployment-only secrets (Google OAuth keys, RupantorPay API key, Supabase keys) are NOT editable here — they live in Supabase project secrets. This tab manages storefront content only.
+      </p>
+
+      {(section === 'general' || section === 'hero' || section === 'footer') && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {section === 'general' && (
+              <>
+                <Input label="Site name" value={settings.site_name} onChange={(v) => setSettings({ ...settings, site_name: v })} />
+                <Input label="Tagline" value={settings.tagline} onChange={(v) => setSettings({ ...settings, tagline: v })} />
+                <Input label="Currency code" value={settings.currency} onChange={(v) => setSettings({ ...settings, currency: v })} />
+                <Input label="Contact email" value={settings.contact_email} onChange={(v) => setSettings({ ...settings, contact_email: v })} />
+                <Input label="Contact WhatsApp" value={settings.contact_whatsapp} onChange={(v) => setSettings({ ...settings, contact_whatsapp: v })} full />
+              </>
+            )}
+            {section === 'hero' && (
+              <>
+                <Input label="Badge text" value={settings.hero_badge} onChange={(v) => setSettings({ ...settings, hero_badge: v })} full />
+                <Input label="Title" value={settings.hero_title} onChange={(v) => setSettings({ ...settings, hero_title: v })} full />
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Subtitle</label>
+                  <textarea
+                    value={settings.hero_subtitle}
+                    onChange={(e) => setSettings({ ...settings, hero_subtitle: e.target.value })}
+                    rows={3}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <Input label="CTA button label" value={settings.hero_cta_label} onChange={(v) => setSettings({ ...settings, hero_cta_label: v })} full />
+              </>
+            )}
+            {section === 'footer' && (
+              <>
+                <Input label="Footer tagline" value={settings.footer_tagline} onChange={(v) => setSettings({ ...settings, footer_tagline: v })} full />
+                <Input label="Copyright text" value={settings.footer_copyright} onChange={(v) => setSettings({ ...settings, footer_copyright: v })} full />
+                <Input label="Twitter URL" value={settings.social_twitter || ''} onChange={(v) => setSettings({ ...settings, social_twitter: v || null })} />
+                <Input label="Instagram URL" value={settings.social_instagram || ''} onChange={(v) => setSettings({ ...settings, social_instagram: v || null })} />
+                <Input label="GitHub URL" value={settings.social_github || ''} onChange={(v) => setSettings({ ...settings, social_github: v || null })} full />
+              </>
+            )}
+          </div>
+          <div className="mt-5 flex justify-end">
+            <button
+              onClick={saveSettings}
+              disabled={savingSettings}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-60"
+            >
+              {savingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save changes
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(section === 'features' || section === 'steps' || section === 'testimonials' || section === 'faq') && (
+        <ContentListEditor
+          section={section}
+          rows={sectionContent(section)}
+          onUpsert={upsert}
+          onDelete={remove}
+        />
+      )}
+    </div>
+  );
+}
+
+function ContentListEditor({
+  section,
+  rows,
+  onUpsert,
+  onDelete,
+}: {
+  section: string;
+  rows: SiteContent[];
+  onUpsert: (row: Partial<SiteContent> & { section: string; title: string }) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const label = section === 'faq' ? 'Question' : 'Title';
+  const bodyLabel = section === 'faq' ? 'Answer' : section === 'testimonials' ? 'Quote' : 'Description';
+  const needsMeta = section === 'features' || section === 'steps' || section === 'testimonials';
+
+  return (
+    <div className="space-y-3">
+      {rows.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+          No items yet. Add one below.
+        </div>
+      )}
+      {rows.map((r) => (
+        <ContentRowEditor key={r.id} row={r} section={section} label={label} bodyLabel={bodyLabel} needsMeta={needsMeta} onUpsert={onUpsert} onDelete={onDelete} />
+      ))}
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-emerald-700">Add new</p>
+        <ContentRowEditor section={section} label={label} bodyLabel={bodyLabel} needsMeta={needsMeta} onUpsert={onUpsert} onDelete={onDelete} />
+      </div>
+    </div>
+  );
+}
+
+function ContentRowEditor({
+  row,
+  section,
+  label,
+  bodyLabel,
+  needsMeta,
+  onUpsert,
+  onDelete,
+}: {
+  row?: SiteContent;
+  section: string;
+  label: string;
+  bodyLabel: string;
+  needsMeta: boolean;
+  onUpsert: (row: Partial<SiteContent> & { section: string; title: string }) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+}) {
+  const [title, setTitle] = useState(row?.title || '');
+  const [body, setBody] = useState(row?.body || '');
+  const [icon, setIcon] = useState<string>(row?.meta?.icon || '');
+  const [n, setN] = useState<string>(row?.meta?.n || '');
+  const [rating, setRating] = useState<string>(row?.meta?.rating ? String(row.meta.rating) : '5');
+  const [role, setRole] = useState<string>(row?.meta?.role || 'Verified buyer');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!title.trim()) return;
+    setSaving(true);
+    const meta: Record<string, any> = {};
+    if (section === 'features' && icon) meta.icon = icon;
+    if (section === 'steps' && n) meta.n = n;
+    if (section === 'testimonials') {
+      meta.rating = Number(rating) || 5;
+      meta.role = role;
+    }
+    await onUpsert({
+      id: row?.id,
+      section,
+      title,
+      body: body || null,
+      sort_order: row?.sort_order ?? 0,
+      meta: Object.keys(meta).length ? meta : null,
+    });
+    setSaving(false);
+    if (!row) {
+      setTitle('');
+      setBody('');
+      setIcon('');
+      setN('');
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+          />
+        </div>
+        {section === 'features' && (
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Icon (lucide name)</label>
+            <input
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              placeholder="Zap"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+            />
+          </div>
+        )}
+        {section === 'steps' && (
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Step number</label>
+            <input
+              value={n}
+              onChange={(e) => setN(e.target.value)}
+              placeholder="01"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+            />
+          </div>
+        )}
+        {section === 'testimonials' && (
+          <>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Rating (1-5)</label>
+              <input
+                type="number"
+                min={1}
+                max={5}
+                value={rating}
+                onChange={(e) => setRating(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Role</label>
+              <input
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              />
+            </div>
+          </>
+        )}
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{bodyLabel}</label>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={2}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+          />
+        </div>
+      </div>
+      <div className="mt-3 flex justify-end gap-2">
+        {row && onDelete && (
+          <button
+            onClick={() => onDelete(row.id)}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </button>
+        )}
+        <button
+          onClick={handleSave}
+          disabled={saving || !title.trim()}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+        >
+          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {row ? 'Save' : 'Add'}
+        </button>
+      </div>
     </div>
   );
 }

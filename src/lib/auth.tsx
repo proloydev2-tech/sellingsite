@@ -112,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAdminUser(data.username);
         try {
           localStorage.setItem(ADMIN_KEY, data.username);
+          localStorage.setItem('voltstore_admin_pass', password);
         } catch {
           // ignore
         }
@@ -121,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAdminUser(null);
         try {
           localStorage.removeItem(ADMIN_KEY);
+          localStorage.removeItem('voltstore_admin_pass');
         } catch {
           // ignore
         }

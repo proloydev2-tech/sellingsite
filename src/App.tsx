@@ -3,6 +3,7 @@ import { Search as SearchIcon } from 'lucide-react';
 import { supabase, supabaseConfigured, type Category, type Product, type Variant } from './lib/supabase';
 import { CartProvider } from './lib/cart';
 import { AuthProvider, useAuth } from './lib/auth';
+import { SiteProvider } from './lib/site-context';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import CategoryStrip from './components/CategoryStrip';
@@ -263,9 +264,11 @@ export default function App() {
   if (!supabaseConfigured) return <ConfigError />;
   return (
     <AuthProvider>
-      <CartProvider>
-        <Store />
-      </CartProvider>
+      <SiteProvider>
+        <CartProvider>
+          <Store />
+        </CartProvider>
+      </SiteProvider>
     </AuthProvider>
   );
 }

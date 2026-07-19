@@ -1,8 +1,10 @@
 import { Zap, ShieldCheck, Clock, Sparkles, Star } from 'lucide-react';
+import { useSite } from '../lib/site-context';
 
 type Props = { onShop: () => void };
 
 export default function Hero({ onShop }: Props) {
+  const { settings } = useSite();
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-slate-900 via-slate-900 to-emerald-950 text-white">
       <div className="absolute inset-0 opacity-30">
@@ -13,13 +15,16 @@ export default function Hero({ onShop }: Props) {
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex animate-fade-up items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-emerald-200 backdrop-blur">
             <Sparkles className="h-3.5 w-3.5" />
-            Instant digital delivery
+            {settings.hero_badge}
           </span>
           <h1 className="mt-5 animate-fade-up text-4xl font-extrabold tracking-tight [animation-delay:0.1s] sm:text-5xl lg:text-6xl">
-            Digital products, <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">delivered instantly</span>
+            {settings.hero_title.split(' ').slice(0, -2).join(' ')}{' '}
+            <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
+              {settings.hero_title.split(' ').slice(-2).join(' ')}
+            </span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl animate-fade-up text-base text-slate-300 [animation-delay:0.2s] sm:text-lg">
-            Game top-ups, streaming subscriptions, software licenses, and gift cards — all at the best prices, delivered to your inbox in seconds.
+            {settings.hero_subtitle}
           </p>
           <div className="mt-7 flex animate-fade-up flex-col items-center justify-center gap-3 [animation-delay:0.3s] sm:flex-row">
             <button
@@ -27,7 +32,7 @@ export default function Hero({ onShop }: Props) {
               className="group inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 hover:shadow-emerald-400/40 active:scale-95 sm:w-auto"
             >
               <Zap className="h-4 w-4 transition group-hover:scale-110" />
-              Shop now
+              {settings.hero_cta_label}
             </button>
             <a
               href="#how-it-works"

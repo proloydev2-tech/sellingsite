@@ -1,6 +1,7 @@
 import { ShoppingCart, Search, Zap, User } from 'lucide-react';
 import { useCart } from '../lib/cart';
 import { useAuth } from '../lib/auth';
+import { useSite } from '../lib/site-context';
 
 type Props = {
   search: string;
@@ -21,6 +22,7 @@ export default function Header({
 }: Props) {
   const { count } = useCart();
   const { user } = useAuth();
+  const { settings } = useSite();
   const avatar = user?.user_metadata?.avatar_url as string | undefined;
 
   return (
@@ -31,8 +33,8 @@ export default function Header({
             <Zap className="h-5 w-5" strokeWidth={2.5} />
           </div>
           <div className="text-left leading-tight">
-            <p className="text-sm font-bold tracking-tight text-slate-900">VoltStore</p>
-            <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">Digital Goods</p>
+            <p className="text-sm font-bold tracking-tight text-slate-900">{settings.site_name}</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">{settings.tagline}</p>
           </div>
         </button>
 
