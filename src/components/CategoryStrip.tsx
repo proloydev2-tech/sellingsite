@@ -9,30 +9,31 @@ type Props = {
 
 export default function CategoryStrip({ categories, active, onSelect }: Props) {
   return (
-    <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
+    <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
       <button
         onClick={() => onSelect(null)}
-        className={`shrink-0 rounded-xl border px-4 py-2 text-sm font-medium transition ${
+        className={`shrink-0 rounded-xl border px-4 py-2 text-sm font-semibold transition ${
           active === null
-            ? 'border-slate-900 bg-slate-900 text-white'
-            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
         }`}
       >
         All
       </button>
       {categories.map((c) => {
         const Icon = (Icons as any)[c.icon] as Icons.LucideIcon | undefined;
+        const isActive = active === c.slug;
         return (
           <button
             key={c.id}
             onClick={() => onSelect(c.slug)}
-            className={`inline-flex shrink-0 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition ${
-              active === c.slug
-                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            className={`inline-flex shrink-0 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+              isActive
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-100'
+                : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-200 hover:bg-emerald-50/40'
             }`}
           >
-            {Icon ? <Icon className="h-4 w-4" /> : null}
+            {Icon ? <Icon className={`h-4 w-4 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} /> : null}
             {c.name}
           </button>
         );

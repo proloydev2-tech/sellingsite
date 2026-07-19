@@ -1,3 +1,5 @@
+import { useMemo, useState } from 'react';
+import { SlidersHorizontal } from 'lucide-react';
 import type { Product, Variant } from '../lib/supabase';
 import ProductCard from './ProductCard';
 
@@ -9,6 +11,8 @@ type Props = {
   loading: boolean;
 };
 
+type Sort = 'featured' | 'price-asc' | 'price-desc' | 'rating';
+
 export default function ProductGrid({
   products,
   variantsByProduct,
@@ -16,11 +20,44 @@ export default function ProductGrid({
   onLoginRequired,
   loading,
 }: Props) {
+  const [sort, setSort] = useState<Sort>('featured');
+
+  const sorted = useMemo(() => {
+    const priceOf = (p: Product) => {
+      const vs = variantsByProduct[p.id] || [];
+      if (!vs.length) return Infinity;
+      return Math.min(...vs.map((v) => v.price));
+    };
+    const list = [...products];
+    switch (sort) {
+      case 'price-asc':
+        return list.sort((a, b) => priceOf(a) - priceOf(b));
+      case 'price-desc':
+        return list.sort((a, b) => priceOf(b) - priceOf(a));
+      case 'rating':
+        return list.sort((a, b) => b.rating - a.rating);
+      default:
+        return list.sort((a, b) => Number(b.featured) - Number(a.featured));
+    }
+  }, [products, variantsByProduct, sort]);
+
   if (loading) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="h-72 animate-pulse rounded-2xl border border-slate-200 bg-slate-100" />
+          <div key={i} className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="aspect-[4/3] animate-pulse bg-slate-100" />
+            <div className="space-y-2 p-4">
+              <div className="h-3 w-1/3 animate-pulse rounded bg-slate-100" />
+              <div className="h-4 w-3/4 animate-pulse rounded bg-slate-100" />
+              <div className="h-3 w-full animate-pulse rounded bg-slate-100" />
+              <div className="h-3 w-2/3 animate-pulse rounded bg-slate-100" />
+              <div className="mt-3 flex justify-between">
+                <div className="h-6 w-16 animate-pulse rounded bg-slate-100" />
+                <div className="h-8 w-14 animate-pulse rounded bg-slate-100" />
+              </div>
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -36,16 +73,37 @@ export default function ProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-      {products.map((p) => (
-        <ProductCard
-          key={p.id}
-          product={p}
-          variants={variantsByProduct[p.id] || []}
-          onOpen={onOpen}
-          onLoginRequired={onLoginRequired}
-        />
-      ))}
+    <div>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-xs font-medium text-slate-500">
+          <span className="font-semibold text-slate-900">{products.length}</span> product{products.length !== 1 ? 's' : ''}
+        </p>
+        <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm">
+          <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
+          <span className="hidden sm:inline text-slate-400">Sort:</span>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as Sort)}
+            className="cursor-pointer bg-transparent text-xs font-semibold text-slate-800 outline-none"
+          >
+            <option value="featured">Featured first</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="rating">Top rated</option>
+          </select>
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+        {sorted.map((p) => (
+          <ProductCard
+            key={p.id}
+            product={p}
+            variants={variantsByProduct[p.id] || []}
+            onOpen={onOpen}
+            onLoginRequired={onLoginRequired}
+          />
+        ))}
+      </div>
     </div>
   );
 }

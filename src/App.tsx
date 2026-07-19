@@ -179,11 +179,11 @@ function Store() {
       <main id="catalog" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
               {activeCat ? categories.find((c) => c.slug === activeCat)?.name : 'All products'}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              {filtered.length} product{filtered.length !== 1 ? 's' : ''} available for instant delivery
+              {filtered.length} product{filtered.length !== 1 ? 's' : ''} available · instant delivery on every order
             </p>
           </div>
         </div>
