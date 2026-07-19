@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
-import { supabase, type Profile } from './supabase';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY, type Profile } from './supabase';
 
 type AuthCtx = {
   session: Session | null;
@@ -103,14 +103,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signInAdmin: async (username, password) => {
         try {
-          const url = import.meta.env.VITE_SUPABASE_URL as string;
-          const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-          const res = await fetch(`${url}/functions/v1/admin-login`, {
+          const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-login`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${anon}`,
-              apikey: anon,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              apikey: SUPABASE_ANON_KEY,
             },
             body: JSON.stringify({ username: username.trim(), password }),
           });

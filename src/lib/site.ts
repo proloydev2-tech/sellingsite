@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
 
 export type SiteSettings = {
   id: number;
@@ -126,10 +126,10 @@ export function clearAdminCreds() {
   }
 }
 
-const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-content`;
+const FN_URL = `${SUPABASE_URL}/functions/v1/admin-content`;
 const FN_HEADERS = {
   'Content-Type': 'application/json',
-  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
 };
 
 export async function adminGetSettings(): Promise<SiteSettings> {

@@ -1,16 +1,15 @@
-import { supabase } from './supabase';
+import { supabase, SUPABASE_ANON_KEY } from './supabase';
 
 const PROJECT_REF = '0ec90b57d6e95fcbda19832f';
 const FUNCTIONS_BASE = `https://${PROJECT_REF}.supabase.co/functions/v1`;
 
 async function invoke(slug: string, body: unknown) {
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
   const res = await fetch(`${FUNCTIONS_BASE}/${slug}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${anonKey}`,
-      apikey: anonKey,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      apikey: SUPABASE_ANON_KEY,
     },
     body: JSON.stringify(body),
   });
