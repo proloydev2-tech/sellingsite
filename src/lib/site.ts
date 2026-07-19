@@ -129,52 +129,76 @@ export function clearAdminCreds() {
 export async function adminGetSettings(): Promise<SiteSettings> {
   const admin = getAdminCreds();
   if (!admin) throw new Error('Not signed in as admin');
-  const { data, error } = await supabase.functions.invoke('admin-content', {
-    body: { action: 'get_settings', admin },
-  });
+  const { data, error } = await supabase
+    .from('site_settings')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle();
   if (error) throw new Error(error.message || 'Failed to load settings');
-  if (data?.error) throw new Error(data.error);
-  return data.data as SiteSettings;
+  return data as SiteSettings;
 }
 
 export async function adminUpdateSettings(updates: Partial<SiteSettings>): Promise<void> {
   const admin = getAdminCreds();
   if (!admin) throw new Error('Not signed in as admin');
-  const { data, error } = await supabase.functions.invoke('admin-content', {
-    body: { action: 'update_settings', admin, payload: updates },
-  });
+  const allowed: (keyof SiteSettings)[] = [
+    'site_name', 'tagline', 'hero_title', 'hero_subtitle', 'hero_badge',
+    'hero_cta_label', 'footer_tagline', 'footer_copyright', 'currency',
+    'contact_email', 'contact_whatsapp', 'social_twitter', 'social_instagram', 'social_github',
+  ];
+  const row: Record<string, unknown> = {};
+  for (const k of allowed) {
+    if (k in updates) row[k] = updates[k];
+  }
+  row.updated_at = new Date().toISOString();
+  const { error } = await supabase.from('site_settings').update(row).eq('id', 1);
   if (error) throw new Error(error.message || 'Failed to save settings');
-  if (data?.error) throw new Error(data.error);
 }
 
 export async function adminListContent(): Promise<SiteContent[]> {
   const admin = getAdminCreds();
   if (!admin) throw new Error('Not signed in as admin');
-  const { data, error } = await supabase.functions.invoke('admin-content', {
-    body: { action: 'list_content', admin },
-  });
+  const { data, error } = await supabase
+    .from('site_content')
+    .select('*')
+    .order('section')
+    .order('sort_order');
   if (error) throw new Error(error.message || 'Failed to load content');
-  if (data?.error) throw new Error(data.error);
-  return data.data as SiteContent[];
+  return (data as SiteContent[]) || [];
 }
 
 export async function adminUpsertContent(row: Partial<SiteContent> & { section: string; title: string }): Promise<string> {
   const admin = getAdminCreds();
   if (!admin) throw new Error('Not signed in as admin');
-  const { data, error } = await supabase.functions.invoke('admin-content', {
-    body: { action: 'upsert_content', admin, payload: row },
-  });
+  const record: Record<string, unknown> = {
+    section: row.section,
+    sort_order: Number(row.sort_order) || 0,
+    title: row.title,
+    body: row.body ?? null,
+    meta: row.meta ?? null,
+  };
+  if (row.id) {
+    const { data, error } = await supabase
+      .from('site_content')
+      .update(record)
+      .eq('id', row.id)
+      .select('id')
+      .maybeSingle();
+    if (error) throw new Error(error.message || 'Failed to save content');
+    return (data as any)?.id;
+  }
+  const { data, error } = await supabase
+    .from('site_content')
+    .insert(record)
+    .select('id')
+    .maybeSingle();
   if (error) throw new Error(error.message || 'Failed to save content');
-  if (data?.error) throw new Error(data.error);
-  return data.id;
+  return (data as any)?.id;
 }
 
 export async function adminDeleteContent(id: string): Promise<void> {
   const admin = getAdminCreds();
   if (!admin) throw new Error('Not signed in as admin');
-  const { data, error } = await supabase.functions.invoke('admin-content', {
-    body: { action: 'delete_content', admin, payload: { id } },
-  });
+  const { error } = await supabase.from('site_content').delete().eq('id', id);
   if (error) throw new Error(error.message || 'Failed to delete content');
-  if (data?.error) throw new Error(data.error);
 }
