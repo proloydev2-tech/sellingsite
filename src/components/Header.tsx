@@ -32,7 +32,7 @@ export default function Header({
           </div>
           <div className="text-left leading-tight">
             <p className="text-sm font-bold tracking-tight text-slate-900">VoltStore</p>
-            <p className="hidden text-[10px] uppercase tracking-[0.18em] text-emerald-600 sm:block">Digital Goods</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">Digital Goods</p>
           </div>
         </button>
 
