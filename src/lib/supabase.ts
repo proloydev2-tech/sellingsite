@@ -9,8 +9,8 @@ export const supabaseConfigured = true;
 export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
   },
 });
 

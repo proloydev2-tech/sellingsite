@@ -39,6 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       setSession(data.session);
       setLoading(false);
+    }).catch(() => {
+      if (cancelled) return;
+      setLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
@@ -109,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .eq('username', username.trim())
             .eq('password', password)
             .maybeSingle();
-          if (error) return { error: error.message || 'Login query failed.' };
+          if (error) return { error: `DB error: ${error.message || 'Login query failed.'}` };
           if (!data) return { error: 'Invalid admin credentials.' };
           setAdminUser(data.username);
           try {
@@ -120,7 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           return { error: null };
         } catch (e) {
-          return { error: `Could not reach the login service: ${e instanceof Error ? e.message : String(e)}` };
+          const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+          return { error: `Login error: ${msg}` };
         }
       },
       signOutAdmin: () => {
