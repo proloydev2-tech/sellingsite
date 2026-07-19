@@ -7,7 +7,7 @@ import Header from './components/Header';
 import Hero from './components/Hero';
 import CategoryStrip from './components/CategoryStrip';
 import ProductGrid from './components/ProductGrid';
-import ProductDetail from './components/ProductDetail';
+import ProductPage from './components/ProductPage';
 import CartDrawer from './components/CartDrawer';
 import CheckoutModal from './components/CheckoutModal';
 import Footer from './components/Footer';
@@ -22,32 +22,44 @@ import ConfigError from './components/ConfigError';
 import PaymentReturn from './components/PaymentReturn';
 
 type View = { kind: 'home' } | { kind: 'category'; slug: string };
-type Route = 'store' | 'admin' | 'login' | 'account';
+type Route =
+  | { name: 'store' }
+  | { name: 'product'; slug: string }
+  | { name: 'admin' }
+  | { name: 'login' }
+  | { name: 'account' };
+
+function parseRoute(): Route {
+  const h = window.location.hash.replace(/^#\/?/, '');
+  if (h === 'admin') return { name: 'admin' };
+  if (h === 'login') return { name: 'login' };
+  if (h === 'account') return { name: 'account' };
+  if (h.startsWith('product/')) {
+    const slug = h.slice('product/'.length).split('?')[0];
+    if (slug) return { name: 'product', slug };
+  }
+  return { name: 'store' };
+}
 
 function useHashRoute(): { route: Route; navigate: (r: Route) => void } {
-  const parse = (): Route => {
-    const h = window.location.hash.replace(/^#\/?/, '');
-    if (h === 'admin') return 'admin';
-    if (h === 'login') return 'login';
-    if (h === 'account') return 'account';
-    return 'store';
-  };
-  const [route, setRoute] = useState<Route>(parse);
+  const [route, setRoute] = useState<Route>(parseRoute);
 
   useEffect(() => {
-    const onHash = () => setRoute(parse());
+    const onHash = () => setRoute(parseRoute());
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
   const navigate = (r: Route) => {
-    if (r === 'store') {
+    if (r.name === 'store') {
       if (window.location.hash) {
         history.pushState('', document.title, window.location.pathname + window.location.search);
       }
-      setRoute('store');
+      setRoute({ name: 'store' });
+    } else if (r.name === 'product') {
+      window.location.hash = `/product/${r.slug}`;
     } else {
-      window.location.hash = `/${r}`;
+      window.location.hash = `/${r.name}`;
     }
   };
 
@@ -62,7 +74,6 @@ function Store() {
   const [search, setSearch] = useState('');
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [view, setView] = useState<View>({ kind: 'home' });
-  const [openProductSlug, setOpenProductSlug] = useState<string | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -114,11 +125,6 @@ function Store() {
     });
   }, [products, categories, activeCat, search]);
 
-  const openProduct = useMemo(() => {
-    if (!openProductSlug) return null;
-    return products.find((p) => p.slug === openProductSlug) || null;
-  }, [openProductSlug, products]);
-
   const handleNavigate = (v: View) => {
     setView(v);
     if (v.kind === 'category') setActiveCat(v.slug);
@@ -131,23 +137,36 @@ function Store() {
   };
 
   const openProductHandler = (slug: string) => {
-    if (route !== 'store') navigate('store');
-    setTimeout(() => setOpenProductSlug(slug), 50);
+    navigate({ name: 'product', slug });
   };
 
-  if (route === 'admin') {
+  if (route.name === 'admin') {
     return isAdmin ? (
-      <AdminApp onExit={() => navigate('store')} />
+      <AdminApp onExit={() => navigate({ name: 'store' })} />
     ) : (
-      <AdminLogin onClose={() => navigate('store')} />
+      <AdminLogin onClose={() => navigate({ name: 'store' })} />
     );
   }
-  if (route === 'login') return <LoginPage onClose={() => navigate('store')} />;
-  if (route === 'account') {
+  if (route.name === 'login') return <LoginPage onClose={() => navigate({ name: 'store' })} />;
+  if (route.name === 'account') {
     return user ? (
-      <AccountPage onExit={() => navigate('store')} onOpenProduct={openProductHandler} />
+      <AccountPage onExit={() => navigate({ name: 'store' })} onOpenProduct={openProductHandler} />
     ) : (
-      <LoginPage onClose={() => navigate('store')} />
+      <LoginPage onClose={() => navigate({ name: 'store' })} />
+    );
+  }
+  if (route.name === 'product') {
+    return (
+      <ProductPage
+        slug={route.slug}
+        products={products}
+        variantsByProduct={variantsByProduct}
+        loading={loading}
+        onBack={() => navigate({ name: 'store' })}
+        onOpenProduct={openProductHandler}
+        onAdded={() => setToast('Added to cart')}
+        onLoginRequired={() => navigate({ name: 'login' })}
+      />
     );
   }
 
@@ -159,7 +178,7 @@ function Store() {
         onOpenCart={() => setCartOpen(true)}
         onNavigate={handleNavigate}
         onJumpCatalog={jumpCatalog}
-        onAccount={() => navigate(user ? 'account' : 'login')}
+        onAccount={() => navigate(user ? { name: 'account' } : { name: 'login' })}
       />
 
       <div className="border-b border-slate-200 bg-white px-4 py-2 sm:hidden">
@@ -177,18 +196,7 @@ function Store() {
       {view.kind === 'home' && <Hero onShop={jumpCatalog} />}
 
       <main id="catalog" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-              {activeCat ? categories.find((c) => c.slug === activeCat)?.name : 'All products'}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {filtered.length} product{filtered.length !== 1 ? 's' : ''} available · instant delivery on every order
-            </p>
-          </div>
-        </div>
-
-        <div className="mb-6">
+        <div className="mb-4">
           <CategoryStrip
             categories={categories}
             active={activeCat}
@@ -202,9 +210,10 @@ function Store() {
         <ProductGrid
           products={filtered}
           variantsByProduct={variantsByProduct}
-          onOpen={setOpenProductSlug}
-          onLoginRequired={() => navigate('login')}
+          onOpen={(slug) => navigate({ name: 'product', slug })}
+          onLoginRequired={() => navigate({ name: 'login' })}
           loading={loading}
+          title={activeCat ? categories.find((c) => c.slug === activeCat)?.name || 'All products' : 'All products'}
         />
       </main>
 
@@ -215,14 +224,6 @@ function Store() {
       <CTA onShop={jumpCatalog} />
 
       <Footer />
-
-      <ProductDetail
-        product={openProduct}
-        variants={openProduct ? variantsByProduct[openProduct.id] || [] : []}
-        onClose={() => setOpenProductSlug(null)}
-        onAdded={() => setToast('Added to cart')}
-        onLoginRequired={() => navigate('login')}
-      />
 
       <CartDrawer
         open={cartOpen}
@@ -249,8 +250,8 @@ function Store() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onSearch={jumpCatalog}
-        onFavorites={() => navigate(user ? 'account' : 'login')}
-        onAccount={() => navigate(user ? 'account' : 'login')}
+        onFavorites={() => navigate(user ? { name: 'account' } : { name: 'login' })}
+        onAccount={() => navigate(user ? { name: 'account' } : { name: 'login' })}
         onCart={() => setCartOpen(true)}
       />
       {paymentReturnOpen ? <PaymentReturn onDismiss={() => setPaymentReturnOpen(false)} /> : null}

@@ -9,6 +9,7 @@ type Props = {
   onOpen: (slug: string) => void;
   onLoginRequired: () => void;
   loading: boolean;
+  title?: string;
 };
 
 type Sort = 'featured' | 'price-asc' | 'price-desc' | 'rating';
@@ -19,6 +20,7 @@ export default function ProductGrid({
   onOpen,
   onLoginRequired,
   loading,
+  title = 'All products',
 }: Props) {
   const [sort, setSort] = useState<Sort>('featured');
 
@@ -74,13 +76,16 @@ export default function ProductGrid({
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-xs font-medium text-slate-500">
-          <span className="font-semibold text-slate-900">{products.length}</span> product{products.length !== 1 ? 's' : ''}
-        </p>
-        <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
+        <div>
+          <h2 className="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">{title}</h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            <span className="font-semibold text-slate-700">{products.length}</span> product{products.length !== 1 ? 's' : ''} · instant delivery
+          </p>
+        </div>
+        <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm">
           <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
-          <span className="hidden sm:inline text-slate-400">Sort:</span>
+          <span className="hidden text-slate-400 sm:inline">Sort:</span>
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as Sort)}
