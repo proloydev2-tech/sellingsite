@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search as SearchIcon } from 'lucide-react';
-import { supabase, type Category, type Product, type Variant } from './lib/supabase';
+import { supabase, supabaseConfigured, type Category, type Product, type Variant } from './lib/supabase';
 import { CartProvider } from './lib/cart';
 import { AuthProvider, useAuth } from './lib/auth';
 import Header from './components/Header';
@@ -18,6 +18,7 @@ import AdminLogin from './components/AdminLogin';
 import LoginPage from './components/LoginPage';
 import AccountPage from './components/AccountPage';
 import MobileNav from './components/MobileNav';
+import ConfigError from './components/ConfigError';
 
 type View = { kind: 'home' } | { kind: 'category'; slug: string };
 type Route = 'store' | 'admin' | 'login' | 'account';
@@ -251,6 +252,7 @@ function Store() {
 }
 
 export default function App() {
+  if (!supabaseConfigured) return <ConfigError />;
   return (
     <AuthProvider>
       <CartProvider>
