@@ -18,26 +18,37 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  let username = "";
+  let password = "";
   try {
-    const { username, password } = await req.json();
-    if (!username || !password) {
-      return new Response(JSON.stringify({ error: "Username and password required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const body = await req.json();
+    username = (body?.username || "").toString().trim();
+    password = (body?.password || "").toString();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid request body." }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  if (!username || !password) {
+    return new Response(JSON.stringify({ error: "Username and password required." }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
-    if (!supabaseUrl || !serviceKey) {
-      return new Response(JSON.stringify({ error: "Server not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
-    // Query admin_users with the service role key (bypasses RLS, keeps passwords off the client)
+  if (!supabaseUrl || !serviceKey) {
+    return new Response(JSON.stringify({ error: "Server not configured." }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
     const apiUrl = `${supabaseUrl}/rest/v1/admin_users?select=username&username=eq.${encodeURIComponent(username)}&password=eq.${encodeURIComponent(password)}`;
     const res = await fetch(apiUrl, {
       headers: {
@@ -48,7 +59,8 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!res.ok) {
-      return new Response(JSON.stringify({ error: "Login failed" }), {
+      const errText = await res.text();
+      return new Response(JSON.stringify({ error: `Login failed: ${res.status}` }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -66,7 +78,7 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: "Login request failed" }), {
+    return new Response(JSON.stringify({ error: `Login error: ${e instanceof Error ? e.message : "unknown"}` }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -112,18 +112,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             },
             body: JSON.stringify({ username: username.trim(), password }),
           });
-          const data = await res.json();
-          if (!res.ok || data.error) return { error: data.error || 'Invalid admin credentials.' };
-          setAdminUser(data.username);
+          const text = await res.text();
+          let data: { username?: string; error?: string } = {};
+          try { data = JSON.parse(text); } catch { /* non-JSON response */ }
+          if (!res.ok || data.error) return { error: data.error || `Login failed (HTTP ${res.status}).` };
+          setAdminUser(data.username || null);
           try {
-            localStorage.setItem(ADMIN_KEY, data.username);
+            localStorage.setItem(ADMIN_KEY, data.username || username.trim());
             localStorage.setItem('voltstore_admin_pass', password);
           } catch {
             // ignore
           }
           return { error: null };
-        } catch {
-          return { error: 'Could not reach the login service. Check your connection.' };
+        } catch (e) {
+          return { error: `Could not reach the login service: ${e instanceof Error ? e.message : String(e)}` };
         }
       },
       signOutAdmin: () => {
