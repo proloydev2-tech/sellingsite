@@ -1,17 +1,16 @@
 import { useState } from 'react';
-import { X, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, Loader2, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useCart } from '../lib/cart';
 import { useAuth } from '../lib/auth';
 import { formatPrice, orderNumber } from '../lib/format';
 import { supabase } from '../lib/supabase';
+import { createPayment } from '../lib/payment';
 
 type Props = {
   open: boolean;
   onClose: () => void;
   onSuccess: (orderNumber: string) => void;
 };
-
-type Method = 'card' | 'paypal' | 'crypto' | 'wallet';
 
 export default function CheckoutModal({ open, onClose, onSuccess }: Props) {
   const { items, total, clear } = useCart();
@@ -20,9 +19,9 @@ export default function CheckoutModal({ open, onClose, onSuccess }: Props) {
     name: (user?.user_metadata?.full_name as string) || '',
     email: user?.email || '',
     whatsapp: '',
-    method: 'card' as Method,
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
   if (!open) return null;
@@ -30,9 +29,10 @@ export default function CheckoutModal({ open, onClose, onSuccess }: Props) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
       const num = orderNumber();
-      const { data, error } = await supabase
+      const { data, error: insertError } = await supabase
         .from('orders')
         .insert({
           order_number: num,
@@ -40,14 +40,15 @@ export default function CheckoutModal({ open, onClose, onSuccess }: Props) {
           customer_email: form.email,
           customer_whatsapp: form.whatsapp.trim() || null,
           total,
-          status: 'paid',
-          payment_method: form.method,
+          status: 'pending',
+          payment_method: 'rupantorpay',
+          payment_provider: 'rupantorpay',
           user_id: user?.id || null,
         })
         .select('id')
         .single();
 
-      if (error) throw error;
+      if (insertError) throw insertError;
       const orderId = (data as any).id as string;
 
       const orderItems = items.map((i) => ({
@@ -59,12 +60,26 @@ export default function CheckoutModal({ open, onClose, onSuccess }: Props) {
         price: i.price,
         quantity: i.quantity,
       }));
-
       await supabase.from('order_items').insert(orderItems);
 
+      const origin = window.location.origin;
+      const result = await createPayment({
+        fullname: form.name,
+        email: form.email,
+        amount: total,
+        order_id: num,
+        success_url: `${origin}/?payment=success&order=${num}`,
+        cancel_url: `${origin}/?payment=cancel&order=${num}`,
+      });
+
+      if (!result.ok || !result.payment_url) {
+        throw new Error(result.message || 'Failed to start payment');
+      }
+
       clear();
-      setDone(num);
-      onSuccess(num);
+      window.location.href = result.payment_url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -133,27 +148,8 @@ export default function CheckoutModal({ open, onClose, onSuccess }: Props) {
                   value={form.whatsapp}
                   onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                  placeholder="+1 555 000 0000"
+                  placeholder="+880 1XXX XXXXXX"
                 />
-              </Field>
-
-              <Field label="Payment method">
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {(['card', 'paypal', 'crypto', 'wallet'] as Method[]).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setForm({ ...form, method: m })}
-                      className={`rounded-xl border px-3 py-2 text-xs font-semibold capitalize transition ${
-                        form.method === m
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
               </Field>
 
               <div className="rounded-xl bg-slate-50 p-3">
@@ -171,16 +167,23 @@ export default function CheckoutModal({ open, onClose, onSuccess }: Props) {
                 </div>
               </div>
 
+              {error ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {error}
+                </div>
+              ) : null}
+
               <button
                 type="submit"
                 disabled={loading || items.length === 0}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:opacity-60"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {loading ? 'Processing...' : `Pay ${formatPrice(total)}`}
+                {loading ? 'Redirecting to payment...' : `Pay ${formatPrice(total)}`}
               </button>
-              <p className="text-center text-xs text-slate-400">
-                This is a demo store — no real payment is processed.
+              <p className="flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Secure payment via RupantorPay — bKash, Nagad, Rocket, cards & more.
               </p>
             </form>
           </>

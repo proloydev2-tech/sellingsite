@@ -19,6 +19,7 @@ import LoginPage from './components/LoginPage';
 import AccountPage from './components/AccountPage';
 import MobileNav from './components/MobileNav';
 import ConfigError from './components/ConfigError';
+import PaymentReturn from './components/PaymentReturn';
 
 type View = { kind: 'home' } | { kind: 'category'; slug: string };
 type Route = 'store' | 'admin' | 'login' | 'account';
@@ -65,6 +66,11 @@ function Store() {
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [paymentReturnOpen, setPaymentReturnOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const p = new URLSearchParams(window.location.search);
+    return p.has('payment') || p.has('transactionId') || p.has('transaction_id') || p.has('tx');
+  });
   const { route, navigate } = useHashRoute();
   const { user, isAdmin } = useAuth();
 
@@ -247,6 +253,7 @@ function Store() {
         onAccount={() => navigate(user ? 'account' : 'login')}
         onCart={() => setCartOpen(true)}
       />
+      {paymentReturnOpen ? <PaymentReturn onDismiss={() => setPaymentReturnOpen(false)} /> : null}
     </div>
   );
 }
