@@ -1,4 +1,4 @@
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
+import { supabase } from './supabase';
 
 export type SiteSettings = {
   id: number;
@@ -126,78 +126,55 @@ export function clearAdminCreds() {
   }
 }
 
-const FN_URL = `${SUPABASE_URL}/functions/v1/admin-content`;
-const FN_HEADERS = {
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-};
-
 export async function adminGetSettings(): Promise<SiteSettings> {
   const admin = getAdminCreds();
   if (!admin) throw new Error('Not signed in as admin');
-  const res = await fetch(FN_URL, {
-    method: 'POST',
-    headers: FN_HEADERS,
-    body: JSON.stringify({ action: 'get_settings', admin }),
+  const { data, error } = await supabase.functions.invoke('admin-content', {
+    body: { action: 'get_settings', admin },
   });
-  if (!res.ok) throw new Error('Failed to load settings');
-  const json = await res.json();
-  return json.data as SiteSettings;
+  if (error) throw new Error(error.message || 'Failed to load settings');
+  if (data?.error) throw new Error(data.error);
+  return data.data as SiteSettings;
 }
 
 export async function adminUpdateSettings(updates: Partial<SiteSettings>): Promise<void> {
   const admin = getAdminCreds();
   if (!admin) throw new Error('Not signed in as admin');
-  const res = await fetch(FN_URL, {
-    method: 'POST',
-    headers: FN_HEADERS,
-    body: JSON.stringify({ action: 'update_settings', admin, payload: updates }),
+  const { data, error } = await supabase.functions.invoke('admin-content', {
+    body: { action: 'update_settings', admin, payload: updates },
   });
-  if (!res.ok) {
-    const e = await res.json().catch(() => ({}));
-    throw new Error(e.error || 'Failed to save settings');
-  }
+  if (error) throw new Error(error.message || 'Failed to save settings');
+  if (data?.error) throw new Error(data.error);
 }
 
 export async function adminListContent(): Promise<SiteContent[]> {
   const admin = getAdminCreds();
   if (!admin) throw new Error('Not signed in as admin');
-  const res = await fetch(FN_URL, {
-    method: 'POST',
-    headers: FN_HEADERS,
-    body: JSON.stringify({ action: 'list_content', admin }),
+  const { data, error } = await supabase.functions.invoke('admin-content', {
+    body: { action: 'list_content', admin },
   });
-  if (!res.ok) throw new Error('Failed to load content');
-  const json = await res.json();
-  return json.data as SiteContent[];
+  if (error) throw new Error(error.message || 'Failed to load content');
+  if (data?.error) throw new Error(data.error);
+  return data.data as SiteContent[];
 }
 
 export async function adminUpsertContent(row: Partial<SiteContent> & { section: string; title: string }): Promise<string> {
   const admin = getAdminCreds();
   if (!admin) throw new Error('Not signed in as admin');
-  const res = await fetch(FN_URL, {
-    method: 'POST',
-    headers: FN_HEADERS,
-    body: JSON.stringify({ action: 'upsert_content', admin, payload: row }),
+  const { data, error } = await supabase.functions.invoke('admin-content', {
+    body: { action: 'upsert_content', admin, payload: row },
   });
-  if (!res.ok) {
-    const e = await res.json().catch(() => ({}));
-    throw new Error(e.error || 'Failed to save content');
-  }
-  const json = await res.json();
-  return json.id;
+  if (error) throw new Error(error.message || 'Failed to save content');
+  if (data?.error) throw new Error(data.error);
+  return data.id;
 }
 
 export async function adminDeleteContent(id: string): Promise<void> {
   const admin = getAdminCreds();
   if (!admin) throw new Error('Not signed in as admin');
-  const res = await fetch(FN_URL, {
-    method: 'POST',
-    headers: FN_HEADERS,
-    body: JSON.stringify({ action: 'delete_content', admin, payload: { id } }),
+  const { data, error } = await supabase.functions.invoke('admin-content', {
+    body: { action: 'delete_content', admin, payload: { id } },
   });
-  if (!res.ok) {
-    const e = await res.json().catch(() => ({}));
-    throw new Error(e.error || 'Failed to delete content');
-  }
+  if (error) throw new Error(error.message || 'Failed to delete content');
+  if (data?.error) throw new Error(data.error);
 }

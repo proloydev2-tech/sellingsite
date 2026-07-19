@@ -1,20 +1,9 @@
-import { supabase, SUPABASE_ANON_KEY } from './supabase';
+import { supabase } from './supabase';
 
-const PROJECT_REF = '0ec90b57d6e95fcbda19832f';
-const FUNCTIONS_BASE = `https://${PROJECT_REF}.supabase.co/functions/v1`;
-
-async function invoke(slug: string, body: unknown) {
-  const res = await fetch(`${FUNCTIONS_BASE}/${slug}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      apikey: SUPABASE_ANON_KEY,
-    },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({ status: false, message: 'Invalid response from server' }));
-  return { ok: res.ok, data };
+async function invoke(slug: string, body: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke(slug, { body });
+  if (error) return { ok: false, data: { status: false, message: error.message || 'Network error' } };
+  return { ok: !data?.error, data };
 }
 
 export type CheckoutResult = {

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY, type Profile } from './supabase';
+import { supabase, type Profile } from './supabase';
 
 type AuthCtx = {
   session: Session | null;
@@ -103,22 +103,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signInAdmin: async (username, password) => {
         try {
-          const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-login`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-              apikey: SUPABASE_ANON_KEY,
-            },
-            body: JSON.stringify({ username: username.trim(), password }),
+          const { data, error } = await supabase.functions.invoke('admin-login', {
+            body: { username: username.trim(), password },
           });
-          const text = await res.text();
-          let data: { username?: string; error?: string } = {};
-          try { data = JSON.parse(text); } catch { /* non-JSON response */ }
-          if (!res.ok || data.error) return { error: data.error || `Login failed (HTTP ${res.status}).` };
-          setAdminUser(data.username || null);
+          if (error) return { error: error.message || 'Login service error.' };
+          if (data?.error) return { error: data.error };
+          if (!data?.username) return { error: 'Invalid admin credentials.' };
+          setAdminUser(data.username);
           try {
-            localStorage.setItem(ADMIN_KEY, data.username || username.trim());
+            localStorage.setItem(ADMIN_KEY, data.username);
             localStorage.setItem('voltstore_admin_pass', password);
           } catch {
             // ignore
