@@ -103,12 +103,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signInAdmin: async (username, password) => {
         try {
-          const { data, error } = await supabase.functions.invoke('admin-login', {
-            body: { username: username.trim(), password },
-          });
-          if (error) return { error: error.message || 'Login service error.' };
-          if (data?.error) return { error: data.error };
-          if (!data?.username) return { error: 'Invalid admin credentials.' };
+          const { data, error } = await supabase
+            .from('admin_users')
+            .select('username')
+            .eq('username', username.trim())
+            .eq('password', password)
+            .maybeSingle();
+          if (error) return { error: error.message || 'Login query failed.' };
+          if (!data) return { error: 'Invalid admin credentials.' };
           setAdminUser(data.username);
           try {
             localStorage.setItem(ADMIN_KEY, data.username);
