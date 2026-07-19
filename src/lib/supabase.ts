@@ -86,3 +86,14 @@ export type OrderItem = {
   price: number;
   quantity: number;
 };
+
+export type Review = {
+  id: string;
+  product_id: string;
+  user_id: string | null;
+  author_name: string;
+  rating: number;
+  comment: string;
+  approved: boolean;
+  created_at: string;
+};

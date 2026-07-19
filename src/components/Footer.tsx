@@ -1,8 +1,6 @@
 import { Zap, Twitter, Github, Instagram } from 'lucide-react';
 
-type Props = { onAdmin: () => void };
-
-export default function Footer({ onAdmin }: Props) {
+export default function Footer() {
   return (
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -29,9 +27,6 @@ export default function Footer({ onAdmin }: Props) {
         </div>
         <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t border-slate-200 pt-6 text-sm text-slate-500 sm:flex-row">
           <p>© {new Date().getFullYear()} VoltStore. All rights reserved.</p>
-          <button onClick={onAdmin} className="text-slate-400 transition hover:text-slate-700">
-            Admin
-          </button>
         </div>
       </div>
     </footer>

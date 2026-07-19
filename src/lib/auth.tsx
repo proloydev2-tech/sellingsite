@@ -7,16 +7,31 @@ type AuthCtx = {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  isAdmin: boolean;
+  adminUser: string | null;
   signInWithGoogle: () => Promise<void>;
+  signUpWithEmail: (email: string, password: string, fullName: string, phone: string) => Promise<{ error: string | null }>;
+  signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInAdmin: (username: string, password: string) => Promise<{ error: string | null }>;
+  signOutAdmin: () => void;
   signOut: () => Promise<void>;
 };
 
 const Ctx = createContext<AuthCtx | null>(null);
 
+const ADMIN_KEY = 'voltstore_admin_user';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [adminUser, setAdminUser] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(ADMIN_KEY);
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       profile,
       loading,
+      isAdmin: !!adminUser,
+      adminUser,
       signInWithGoogle: async () => {
         const redirectTo = `${window.location.origin}/`;
         await supabase.auth.signInWithOAuth({
@@ -67,11 +84,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           options: { redirectTo },
         });
       },
+      signUpWithEmail: async (email, password, fullName, phone) => {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: fullName, phone } },
+        });
+        if (error) return { error: error.message };
+        if (data.user && !data.session) {
+          return { error: 'Check your email to confirm your account.' };
+        }
+        return { error: null };
+      },
+      signInWithEmail: async (email, password) => {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) return { error: error.message };
+        return { error: null };
+      },
+      signInAdmin: async (username, password) => {
+        const { data, error } = await supabase
+          .from('admin_users')
+          .select('username')
+          .eq('username', username)
+          .eq('password', password)
+          .maybeSingle();
+        if (error || !data) return { error: 'Invalid admin credentials.' };
+        setAdminUser(data.username);
+        try {
+          localStorage.setItem(ADMIN_KEY, data.username);
+        } catch {
+          // ignore
+        }
+        return { error: null };
+      },
+      signOutAdmin: () => {
+        setAdminUser(null);
+        try {
+          localStorage.removeItem(ADMIN_KEY);
+        } catch {
+          // ignore
+        }
+      },
       signOut: async () => {
         await supabase.auth.signOut();
       },
     }),
-    [session, profile, loading],
+    [session, profile, loading, adminUser],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, LogOut, Receipt, Heart, User as UserIcon, Loader2, Package } from 'lucide-react';
+import { ArrowLeft, LogOut, Receipt, Heart, User as UserIcon, Loader2, Package, Star, MessageSquare } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import { supabase, type Order, type OrderItem, type Product } from '../lib/supabase';
+import { supabase, type Order, type OrderItem, type Product, type Review } from '../lib/supabase';
 import { formatPrice } from '../lib/format';
 
 type Props = {
@@ -9,7 +9,7 @@ type Props = {
   onOpenProduct: (slug: string) => void;
 };
 
-type Tab = 'orders' | 'favorites' | 'profile';
+type Tab = 'orders' | 'favorites' | 'reviews' | 'profile';
 
 export default function AccountPage({ onExit, onOpenProduct }: Props) {
   const { user, profile, signOut } = useAuth();
@@ -17,6 +17,7 @@ export default function AccountPage({ onExit, onOpenProduct }: Props) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [favorites, setFavorites] = useState<Product[]>([]);
+  const [myReviews, setMyReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,7 +25,7 @@ export default function AccountPage({ onExit, onOpenProduct }: Props) {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [{ data: o }, { data: oi }, { data: favs }] = await Promise.all([
+      const [{ data: o }, { data: oi }, { data: favs }, { data: reviews }] = await Promise.all([
         supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('order_items').select('*'),
         supabase
@@ -32,11 +33,17 @@ export default function AccountPage({ onExit, onOpenProduct }: Props) {
           .select('product_id, products(*)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }),
+        supabase
+          .from('reviews')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
       ]);
       if (cancelled) return;
       setOrders((o as Order[]) || []);
       setOrderItems((oi as OrderItem[]) || []);
       setFavorites((favs || []).map((f: any) => f.products as Product).filter(Boolean));
+      setMyReviews((reviews as Review[]) || []);
       setLoading(false);
     })();
     return () => {
@@ -90,6 +97,7 @@ export default function AccountPage({ onExit, onOpenProduct }: Props) {
         <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
           <TabBtn icon={<Receipt className="h-4 w-4" />} label="Orders" active={tab === 'orders'} onClick={() => setTab('orders')} />
           <TabBtn icon={<Heart className="h-4 w-4" />} label="Favorites" active={tab === 'favorites'} onClick={() => setTab('favorites')} />
+          <TabBtn icon={<MessageSquare className="h-4 w-4" />} label="My reviews" active={tab === 'reviews'} onClick={() => setTab('reviews')} />
           <TabBtn icon={<UserIcon className="h-4 w-4" />} label="Profile" active={tab === 'profile'} onClick={() => setTab('profile')} />
         </div>
 
@@ -102,6 +110,8 @@ export default function AccountPage({ onExit, onOpenProduct }: Props) {
             <OrdersTab orders={orders} orderItems={orderItems} />
           ) : tab === 'favorites' ? (
             <FavoritesTab favorites={favorites} onOpenProduct={onOpenProduct} />
+          ) : tab === 'reviews' ? (
+            <ReviewsTab reviews={myReviews} />
           ) : (
             <ProfileTab />
           )}
@@ -206,14 +216,49 @@ function ProfileTab() {
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="text-base font-semibold text-slate-900">Account details</h3>
       <p className="mt-1 text-sm text-slate-500">
-        Your profile is created automatically when you sign in with Google. We store only your
-        name, email, and avatar.
+        Your profile is created automatically when you sign in. We store only your
+        name, email, and phone number.
       </p>
       <div className="mt-4 space-y-2 text-sm">
         <Row label="Plan" value="Free member" />
-        <Row label="Verified" value="Yes (Google)" />
+        <Row label="Verified" value="Yes" />
         <Row label="Member since" value={new Date().toLocaleDateString()} />
       </div>
+    </div>
+  );
+}
+
+function ReviewsTab({ reviews }: { reviews: Review[] }) {
+  if (reviews.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
+        <MessageSquare className="mx-auto h-10 w-10 text-slate-300" />
+        <p className="mt-3 text-base font-medium text-slate-900">No reviews yet</p>
+        <p className="mt-1 text-sm text-slate-500">Reviews you write on products will appear here.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {reviews.map((r) => (
+        <div key={r.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{r.author_name}</p>
+              <p className="text-[11px] text-slate-400">{new Date(r.created_at).toLocaleDateString()}</p>
+            </div>
+            <div className="flex gap-0.5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star
+                  key={i}
+                  className={`h-3.5 w-3.5 ${i < r.rating ? 'fill-amber-500 text-amber-500' : 'text-slate-200'}`}
+                />
+              ))}
+            </div>
+          </div>
+          <p className="mt-2 text-sm text-slate-600">{r.comment}</p>
+        </div>
+      ))}
     </div>
   );
 }

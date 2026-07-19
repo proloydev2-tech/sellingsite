@@ -8,7 +8,6 @@ type Props = {
   onOpenCart: () => void;
   onNavigate: (view: { kind: 'home' } | { kind: 'category'; slug: string }) => void;
   onJumpCatalog: () => void;
-  onAdmin: () => void;
   onAccount: () => void;
 };
 
@@ -18,7 +17,6 @@ export default function Header({
   onOpenCart,
   onNavigate,
   onJumpCatalog,
-  onAdmin,
   onAccount,
 }: Props) {
   const { count } = useCart();
@@ -55,12 +53,6 @@ export default function Header({
           className="hidden text-sm font-medium text-slate-700 transition hover:text-slate-900 md:inline-flex"
         >
           Catalog
-        </button>
-        <button
-          onClick={onAdmin}
-          className="hidden rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 md:inline-flex"
-        >
-          Admin
         </button>
 
         <button

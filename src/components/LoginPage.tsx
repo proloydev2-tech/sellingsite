@@ -1,15 +1,41 @@
 import { useState } from 'react';
-import { Zap, ArrowLeft, ShieldCheck, Sparkles, Loader2 } from 'lucide-react';
+import {
+  Zap,
+  ArrowLeft,
+  ShieldCheck,
+  Sparkles,
+  Loader2,
+  Mail,
+  Lock,
+  User as UserIcon,
+  Phone,
+  Eye,
+  EyeOff,
+  LayoutDashboard,
+} from 'lucide-react';
 import { useAuth } from '../lib/auth';
 
-type Props = { onClose: () => void };
+type Props = { onClose: () => void; defaultTab?: 'signin' | 'signup' };
 
-export default function LoginPage({ onClose }: Props) {
-  const { signInWithGoogle } = useAuth();
+type Mode = 'signin' | 'signup' | 'admin';
+
+export default function LoginPage({ onClose, defaultTab = 'signin' }: Props) {
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, signInAdmin } = useAuth();
+  const [mode, setMode] = useState<Mode>(defaultTab);
+  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // sign in
+  const [signin, setSignin] = useState({ email: '', password: '' });
+  // sign up
+  const [signup, setSignup] = useState({ name: '', email: '', phone: '', password: '' });
+  // admin
+  const [admin, setAdmin] = useState({ username: '', password: '' });
 
   const handleGoogle = async () => {
     setLoading(true);
+    setError(null);
     try {
       await signInWithGoogle();
     } finally {
@@ -17,8 +43,50 @@ export default function LoginPage({ onClose }: Props) {
     }
   };
 
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const { error } = await signInWithEmail(signin.email, signin.password);
+    if (error) setError(error);
+    else onClose();
+    setLoading(false);
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const { error } = await signUpWithEmail(
+      signup.email,
+      signup.password,
+      signup.name,
+      signup.phone,
+    );
+    if (error) setError(error);
+    else {
+      setError(null);
+      setMode('signin');
+      setSignin({ email: signup.email, password: '' });
+    }
+    setLoading(false);
+  };
+
+  const handleAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const { error } = await signInAdmin(admin.username, admin.password);
+    if (error) setError(error);
+    else {
+      window.location.hash = '/admin';
+      onClose();
+    }
+    setLoading(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-emerald-50/40">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/40">
       <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 py-6">
         <button
           onClick={onClose}
@@ -28,54 +96,256 @@ export default function LoginPage({ onClose }: Props) {
           Back to store
         </button>
 
-        <div className="flex flex-1 flex-col justify-center py-10">
+        <div className="flex flex-1 flex-col justify-center py-8">
           <div className="mx-auto w-full max-w-sm">
-            <div className="mb-8 text-center">
+            <div className="mb-6 text-center">
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-white shadow-lg shadow-emerald-500/30">
                 <Zap className="h-7 w-7" strokeWidth={2.5} />
               </div>
-              <h1 className="mt-5 text-2xl font-bold text-slate-900">Welcome to VoltStore</h1>
+              <h1 className="mt-5 text-2xl font-bold text-slate-900">
+                {mode === 'signup' ? 'Create your account' : mode === 'admin' ? 'Admin login' : 'Welcome back'}
+              </h1>
               <p className="mt-1.5 text-sm text-slate-500">
-                Sign in to track orders, save favorites, and checkout faster.
+                {mode === 'signup'
+                  ? 'Sign up to track orders, save favorites, and checkout faster.'
+                  : mode === 'admin'
+                    ? 'Sign in to the admin panel.'
+                    : 'Sign in to continue to VoltStore.'}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            {mode !== 'admin' && (
+              <>
+                <button
+                  onClick={handleGoogle}
+                  disabled={loading}
+                  className="inline-flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  {loading ? <Loader2 className="h-5 w-5 animate-spin text-slate-500" /> : <GoogleIcon />}
+                  Continue with Google
+                </button>
+
+                <div className="my-4 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-slate-200" />
+                  <span className="text-xs text-slate-400">or</span>
+                  <div className="h-px flex-1 bg-slate-200" />
+                </div>
+              </>
+            )}
+
+            {mode === 'signin' && (
+              <form onSubmit={handleSignIn} className="space-y-3">
+                <Field label="Email" icon={<Mail className="h-4 w-4" />}>
+                  <input
+                    type="email"
+                    required
+                    value={signin.email}
+                    onChange={(e) => setSignin({ ...signin, email: e.target.value })}
+                    placeholder="you@example.com"
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  />
+                </Field>
+                <Field label="Password" icon={<Lock className="h-4 w-4" />}>
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    required
+                    value={signin.password}
+                    onChange={(e) => setSignin({ ...signin, password: e.target.value })}
+                    placeholder="••••••••"
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(!showPass)}
+                    className="text-slate-400 hover:text-slate-700"
+                  >
+                    {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </Field>
+
+                {error && <ErrorBox text={error} />}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:opacity-60"
+                >
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Sign in
+                </button>
+
+                <p className="text-center text-sm text-slate-500">
+                  Don't have an account?{' '}
+                  <button type="button" onClick={() => { setMode('signup'); setError(null); }} className="font-semibold text-emerald-600 hover:text-emerald-700">
+                    Sign up
+                  </button>
+                </p>
+              </form>
+            )}
+
+            {mode === 'signup' && (
+              <form onSubmit={handleSignUp} className="space-y-3">
+                <Field label="Full name" icon={<UserIcon className="h-4 w-4" />}>
+                  <input
+                    required
+                    value={signup.name}
+                    onChange={(e) => setSignup({ ...signup, name: e.target.value })}
+                    placeholder="John Doe"
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  />
+                </Field>
+                <Field label="Email" icon={<Mail className="h-4 w-4" />}>
+                  <input
+                    type="email"
+                    required
+                    value={signup.email}
+                    onChange={(e) => setSignup({ ...signup, email: e.target.value })}
+                    placeholder="you@example.com"
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  />
+                </Field>
+                <Field label="Phone number" icon={<Phone className="h-4 w-4" />}>
+                  <input
+                    type="tel"
+                    required
+                    value={signup.phone}
+                    onChange={(e) => setSignup({ ...signup, phone: e.target.value })}
+                    placeholder="+1 555 000 0000"
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  />
+                </Field>
+                <Field label="Password" icon={<Lock className="h-4 w-4" />}>
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={signup.password}
+                    onChange={(e) => setSignup({ ...signup, password: e.target.value })}
+                    placeholder="At least 6 characters"
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(!showPass)}
+                    className="text-slate-400 hover:text-slate-700"
+                  >
+                    {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </Field>
+
+                {error && <ErrorBox text={error} />}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:opacity-60"
+                >
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Create account
+                </button>
+
+                <p className="text-center text-sm text-slate-500">
+                  Already have an account?{' '}
+                  <button type="button" onClick={() => { setMode('signin'); setError(null); }} className="font-semibold text-emerald-600 hover:text-emerald-700">
+                    Sign in
+                  </button>
+                </p>
+              </form>
+            )}
+
+            {mode === 'admin' && (
+              <form onSubmit={handleAdmin} className="space-y-3">
+                <Field label="Admin username" icon={<UserIcon className="h-4 w-4" />}>
+                  <input
+                    required
+                    value={admin.username}
+                    onChange={(e) => setAdmin({ ...admin, username: e.target.value })}
+                    placeholder="praloy"
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  />
+                </Field>
+                <Field label="Admin password" icon={<Lock className="h-4 w-4" />}>
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    required
+                    value={admin.password}
+                    onChange={(e) => setAdmin({ ...admin, password: e.target.value })}
+                    placeholder="••••••••"
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(!showPass)}
+                    className="text-slate-400 hover:text-slate-700"
+                  >
+                    {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </Field>
+
+                {error && <ErrorBox text={error} />}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 disabled:opacity-60"
+                >
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Enter admin panel
+                </button>
+              </form>
+            )}
+
+            <div className="mt-4 flex justify-center">
               <button
-                onClick={handleGoogle}
-                disabled={loading}
-                className="inline-flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                onClick={() => { setMode(mode === 'admin' ? 'signin' : 'admin'); setError(null); }}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800"
               >
-                {loading ? <Loader2 className="h-5 w-5 animate-spin text-slate-500" /> : <GoogleIcon />}
-                Continue with Google
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                {mode === 'admin' ? 'Back to customer sign in' : 'Admin login'}
               </button>
-
-              <div className="my-4 flex items-center gap-3">
-                <div className="h-px flex-1 bg-slate-200" />
-                <span className="text-xs text-slate-400">Why sign in?</span>
-                <div className="h-px flex-1 bg-slate-200" />
-              </div>
-
-              <ul className="space-y-2 text-sm text-slate-600">
-                <li className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-emerald-500" />
-                  Save favorites and reorder in one tap
-                </li>
-                <li className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                  Track your order history securely
-                </li>
-              </ul>
             </div>
 
-            <p className="mt-5 text-center text-xs text-slate-400">
+            {mode !== 'admin' && (
+              <div className="mt-5 rounded-xl bg-slate-50 p-3">
+                <ul className="space-y-1.5 text-xs text-slate-600">
+                  <li className="flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
+                    Save favorites and reorder in one tap
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                    Track your order history securely
+                  </li>
+                </ul>
+              </div>
+            )}
+
+            <p className="mt-4 text-center text-[11px] text-slate-400">
               By continuing you agree to our Terms and Privacy Policy.
-              <br />
-              We only use your name and email from Google.
             </p>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Field({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span>
+      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20">
+        <span className="text-slate-400">{icon}</span>
+        {children}
+      </div>
+    </label>
+  );
+}
+
+function ErrorBox({ text }: { text: string }) {
+  return (
+    <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+      {text}
     </div>
   );
 }

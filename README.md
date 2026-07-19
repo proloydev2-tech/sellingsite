@@ -11,18 +11,30 @@ A modern, mobile-first storefront for selling digital products: game top-ups, st
   - Checkout flow that writes real orders to Supabase
   - Features, How-it-works, Testimonials, FAQ, CTA sections
 - **Authentication**
+  - Email & password sign up (name, email, phone, password)
+  - Email & password sign in
   - Google sign-in via Supabase Auth (OAuth)
   - Session persistence across reloads
   - Protected account page
+- **Reviews**
+  - Customers can write reviews (1-5 stars + comment) on any product
+  - Reviews shown on product detail page with average rating
+  - "My reviews" tab in account page
+  - Admin can approve/hide/delete reviews
 - **Account page** (`#/account`)
   - Order history with line items
   - Saved favorites (wishlist)
+  - My reviews
   - Profile details
-- **Admin panel** (`#/admin`)
-  - Dashboard with revenue, orders, products, categories stats
+- **Admin panel** (`#/admin`) — gated
+  - Separate admin login (username: `praloy`, password: `praloy`)
+  - No admin button in customer UI — access via `#/admin` URL only
+  - Dashboard with revenue, orders, products, categories, reviews stats
   - Product CRUD with variant editor
   - Category CRUD with icon picker
   - Order management with status updates
+  - Reviews moderation (approve / hide / delete)
+  - Admin logout
 - **Mobile-first design**
   - Bottom tab navigation on mobile
   - Touch-friendly cards and controls
@@ -54,8 +66,11 @@ VITE_SUPABASE_URL=<your-supabase-url>
 VITE_SUPABASE_ANON_KEY=<your-supabase-anon-key>
 ```
 
-## Enable Google Sign-In
+## Authentication
 
+**Email & password** works out of the box (no setup required). Users sign up with name, email, phone, and password.
+
+**Google sign-in** is optional. To enable it:
 1. Go to **Supabase Dashboard → Authentication → Providers → Google**.
 2. Toggle Enable.
 3. Create a Google OAuth client in Google Cloud Console:
@@ -63,6 +78,11 @@ VITE_SUPABASE_ANON_KEY=<your-supabase-anon-key>
 4. Copy the Google Client ID and Client Secret into the Supabase Google provider config.
 5. After deploying, add your domain to Supabase's **Auth → Redirect URLs**:
    `https://<your-domain>/**`
+
+**Admin login** is separate from customer auth. Default credentials:
+- Username: `praloy`
+- Password: `praloy`
+- Access via `#/admin` URL only (no admin button in customer UI).
 
 ## Deploy to Vercel
 
@@ -79,9 +99,9 @@ VITE_SUPABASE_ANON_KEY=<your-supabase-anon-key>
 ## Routes (hash-based)
 
 - `#/` — Storefront
-- `#/login` — Sign in with Google
-- `#/account` — Account (orders, favorites, profile)
-- `#/admin` — Admin dashboard
+- `#/login` — Sign in / Sign up (email+password or Google)
+- `#/account` — Account (orders, favorites, my reviews, profile)
+- `#/admin` — Admin login → Admin dashboard (gated)
 
 ## Database
 
@@ -90,8 +110,10 @@ Schema (managed in Supabase):
 - `orders`, `order_items` — purchases
 - `profiles` — user profile (1:1 with auth.users, auto-created on signup)
 - `favorites` — wishlist (user_id + product_id, unique)
+- `reviews` — product reviews (author, rating, comment, approved)
+- `admin_users` — admin credentials (username, password)
 
-RLS is enabled on every table. Catalog is readable by anon; orders/favorites/profiles are owner-scoped to authenticated users.
+RLS is enabled on every table. Catalog is readable by anon; orders/favorites/profiles/reviews are owner-scoped to authenticated users.
 
 ## License
 

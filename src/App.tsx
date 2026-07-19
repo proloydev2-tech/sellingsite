@@ -14,6 +14,7 @@ import Footer from './components/Footer';
 import Toast from './components/Toast';
 import { Features, Steps, Testimonials, FAQ, CTA } from './components/Sections';
 import AdminApp from './admin/AdminApp';
+import AdminLogin from './components/AdminLogin';
 import LoginPage from './components/LoginPage';
 import AccountPage from './components/AccountPage';
 import MobileNav from './components/MobileNav';
@@ -64,7 +65,7 @@ function Store() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const { route, navigate } = useHashRoute();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   useEffect(() => {
     let cancelled = false;
@@ -127,7 +128,13 @@ function Store() {
     setTimeout(() => setOpenProductSlug(slug), 50);
   };
 
-  if (route === 'admin') return <AdminApp onExit={() => navigate('store')} />;
+  if (route === 'admin') {
+    return isAdmin ? (
+      <AdminApp onExit={() => navigate('store')} />
+    ) : (
+      <AdminLogin onClose={() => navigate('store')} />
+    );
+  }
   if (route === 'login') return <LoginPage onClose={() => navigate('store')} />;
   if (route === 'account') {
     return user ? (
@@ -145,7 +152,6 @@ function Store() {
         onOpenCart={() => setCartOpen(true)}
         onNavigate={handleNavigate}
         onJumpCatalog={jumpCatalog}
-        onAdmin={() => navigate('admin')}
         onAccount={() => navigate(user ? 'account' : 'login')}
       />
 
@@ -201,7 +207,7 @@ function Store() {
       <FAQ />
       <CTA onShop={jumpCatalog} />
 
-      <Footer onAdmin={() => navigate('admin')} />
+      <Footer />
 
       <ProductDetail
         product={openProduct}

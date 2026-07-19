@@ -5,6 +5,7 @@ import { formatPrice } from '../lib/format';
 import { useCart } from '../lib/cart';
 import { useFavorites } from '../lib/favorites';
 import { useAuth } from '../lib/auth';
+import Reviews from './Reviews';
 
 type Props = {
   product: Product | null;
@@ -196,6 +197,10 @@ export default function ProductDetail({ product, variants, onClose, onAdded, onL
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="border-t border-slate-200 p-5 sm:p-6">
+          <Reviews productId={product.id} />
         </div>
       </div>
     </div>
