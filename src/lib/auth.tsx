@@ -102,21 +102,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: null };
       },
       signInAdmin: async (username, password) => {
-        const { data, error } = await supabase
-          .from('admin_users')
-          .select('username')
-          .eq('username', username)
-          .eq('password', password)
-          .maybeSingle();
-        if (error || !data) return { error: 'Invalid admin credentials.' };
-        setAdminUser(data.username);
         try {
-          localStorage.setItem(ADMIN_KEY, data.username);
-          localStorage.setItem('voltstore_admin_pass', password);
+          const url = import.meta.env.VITE_SUPABASE_URL as string;
+          const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+          const res = await fetch(`${url}/functions/v1/admin-login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${anon}`,
+              apikey: anon,
+            },
+            body: JSON.stringify({ username: username.trim(), password }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.error) return { error: data.error || 'Invalid admin credentials.' };
+          setAdminUser(data.username);
+          try {
+            localStorage.setItem(ADMIN_KEY, data.username);
+            localStorage.setItem('voltstore_admin_pass', password);
+          } catch {
+            // ignore
+          }
+          return { error: null };
         } catch {
-          // ignore
+          return { error: 'Could not reach the login service. Check your connection.' };
         }
-        return { error: null };
       },
       signOutAdmin: () => {
         setAdminUser(null);
