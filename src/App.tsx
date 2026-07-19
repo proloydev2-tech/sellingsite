@@ -33,7 +33,7 @@ type Route =
 
 function parseRoute(): Route {
   const h = window.location.hash.replace(/^#\/?/, '');
-  if (h === 'admin') return { name: 'admin' };
+  if (h === 'admin' || h.startsWith('admin/') || h.startsWith('admin?')) return { name: 'admin' };
   if (h === 'login') return { name: 'login' };
   if (h === 'account') return { name: 'account' };
   if (h.startsWith('product/')) {
@@ -47,6 +47,16 @@ function useHashRoute(): { route: Route; navigate: (r: Route) => void } {
   const [route, setRoute] = useState<Route>(parseRoute);
 
   useEffect(() => {
+    // Support path-based admin links (e.g. /admin/products) by redirecting
+    // them to the hash-based route the SPA actually understands.
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    if (path === 'admin' || path.startsWith('admin/')) {
+      const sub = path.slice('admin/'.length);
+      const target = sub ? `#/admin/${sub}` : '#/admin';
+      if (window.location.hash !== target) {
+        window.location.replace(target);
+      }
+    }
     const onHash = () => setRoute(parseRoute());
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);

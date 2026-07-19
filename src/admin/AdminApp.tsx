@@ -34,9 +34,40 @@ import {
 type Props = { onExit: () => void };
 type Tab = 'dashboard' | 'products' | 'categories' | 'orders' | 'reviews' | 'site';
 
+const TAB_FROM_HASH: Record<string, Tab> = {
+  '': 'dashboard',
+  dashboard: 'dashboard',
+  products: 'products',
+  categories: 'categories',
+  orders: 'orders',
+  reviews: 'reviews',
+  site: 'site',
+};
+
+function parseAdminTab(): Tab {
+  const h = window.location.hash.replace(/^#\/?admin\/?/, '').split('?')[0];
+  return TAB_FROM_HASH[h] || 'dashboard';
+}
+
+function setAdminTabInHash(t: Tab) {
+  const sub = t === 'dashboard' ? 'dashboard' : t;
+  window.location.hash = `/admin/${sub}`;
+}
+
 export default function AdminApp({ onExit }: Props) {
   const { adminUser, signOutAdmin } = useAuth();
-  const [tab, setTab] = useState<Tab>('dashboard');
+  const [tab, setTab] = useState<Tab>(parseAdminTab);
+
+  useEffect(() => {
+    const onHash = () => setTab(parseAdminTab());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  const switchTab = (t: Tab) => {
+    setTab(t);
+    setAdminTabInHash(t);
+  };
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [variantsByProduct, setVariantsByProduct] = useState<Record<string, Variant[]>>({});
@@ -113,12 +144,12 @@ export default function AdminApp({ onExit }: Props) {
             )}
           </div>
           <div className="flex items-center gap-1 overflow-x-auto">
-            <TabBtn icon={<LayoutDashboard className="h-4 w-4" />} label="Dashboard" active={tab === 'dashboard'} onClick={() => setTab('dashboard')} />
-            <TabBtn icon={<Package className="h-4 w-4" />} label="Products" active={tab === 'products'} onClick={() => setTab('products')} />
-            <TabBtn icon={<Tags className="h-4 w-4" />} label="Categories" active={tab === 'categories'} onClick={() => setTab('categories')} />
-            <TabBtn icon={<Receipt className="h-4 w-4" />} label="Orders" active={tab === 'orders'} onClick={() => setTab('orders')} />
-            <TabBtn icon={<MessageSquare className="h-4 w-4" />} label="Reviews" active={tab === 'reviews'} onClick={() => setTab('reviews')} />
-            <TabBtn icon={<Settings className="h-4 w-4" />} label="Site" active={tab === 'site'} onClick={() => setTab('site')} />
+            <TabBtn icon={<LayoutDashboard className="h-4 w-4" />} label="Dashboard" active={tab === 'dashboard'} onClick={() => switchTab('dashboard')} />
+            <TabBtn icon={<Package className="h-4 w-4" />} label="Products" active={tab === 'products'} onClick={() => switchTab('products')} />
+            <TabBtn icon={<Tags className="h-4 w-4" />} label="Categories" active={tab === 'categories'} onClick={() => switchTab('categories')} />
+            <TabBtn icon={<Receipt className="h-4 w-4" />} label="Orders" active={tab === 'orders'} onClick={() => switchTab('orders')} />
+            <TabBtn icon={<MessageSquare className="h-4 w-4" />} label="Reviews" active={tab === 'reviews'} onClick={() => switchTab('reviews')} />
+            <TabBtn icon={<Settings className="h-4 w-4" />} label="Site" active={tab === 'site'} onClick={() => switchTab('site')} />
             <button
               onClick={handleAdminLogout}
               className="ml-1 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
