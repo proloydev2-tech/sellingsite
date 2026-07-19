@@ -49,24 +49,49 @@ export const defaultSettings: SiteSettings = {
   updated_at: '',
 };
 
+export const defaultContent: SiteContent[] = [
+  { id: 'd-feature-1', section: 'feature', sort_order: 0, title: 'Instant delivery', body: 'Receive your digital products within seconds of payment.', meta: { icon: 'Zap' }, created_at: '' },
+  { id: 'd-feature-2', section: 'feature', sort_order: 1, title: 'Secure payments', body: 'Encrypted checkout with multiple payment options.', meta: { icon: 'ShieldCheck' }, created_at: '' },
+  { id: 'd-feature-3', section: 'feature', sort_order: 2, title: '24/7 availability', body: 'Our automated system never sleeps.', meta: { icon: 'Clock' }, created_at: '' },
+  { id: 'd-feature-4', section: 'feature', sort_order: 3, title: 'Friendly support', body: 'Real humans ready to help via WhatsApp and email.', meta: { icon: 'Headphones' }, created_at: '' },
+  { id: 'd-step-1', section: 'step', sort_order: 0, title: 'Choose your product', body: 'Browse our catalog and pick the digital product you need.', meta: { n: '01' }, created_at: '' },
+  { id: 'd-step-2', section: 'step', sort_order: 1, title: 'Checkout securely', body: 'Pay with bKash, Nagad, Rocket, or card via RupantorPay.', meta: { n: '02' }, created_at: '' },
+  { id: 'd-step-3', section: 'step', sort_order: 2, title: 'Get instant delivery', body: 'Your product is delivered to your email immediately.', meta: { n: '03' }, created_at: '' },
+  { id: 'd-test-1', section: 'testimonial', sort_order: 0, title: 'Aisha K.', body: 'Got my Netflix subscription in under a minute. Best price I found anywhere!', meta: { role: 'Verified buyer', rating: 5 }, created_at: '' },
+  { id: 'd-test-2', section: 'testimonial', sort_order: 1, title: 'Marco D.', body: 'Mobile Legends diamonds arrived instantly. Will buy again.', meta: { role: 'Verified buyer', rating: 5 }, created_at: '' },
+  { id: 'd-test-3', section: 'testimonial', sort_order: 2, title: 'Sara P.', body: 'Customer support helped me pick the right Steam card. Super friendly.', meta: { role: 'Verified buyer', rating: 5 }, created_at: '' },
+  { id: 'd-faq-1', section: 'faq', sort_order: 0, title: 'How fast is delivery?', body: 'Most products are delivered within 60 seconds of payment confirmation. Some require manual verification and may take up to 10 minutes.', meta: null, created_at: '' },
+  { id: 'd-faq-2', section: 'faq', sort_order: 1, title: 'What payment methods do you accept?', body: 'We accept bKash, Nagad, Rocket, and major cards via RupantorPay.', meta: null, created_at: '' },
+  { id: 'd-faq-3', section: 'faq', sort_order: 2, title: 'Can I get a refund?', body: 'If a product fails to deliver and we cannot resolve the issue within 24 hours, we issue a full refund.', meta: null, created_at: '' },
+  { id: 'd-faq-4', section: 'faq', sort_order: 3, title: 'Is my payment secure?', body: 'All payments are processed over encrypted connections via RupantorPay. We never store your card details.', meta: null, created_at: '' },
+];
+
 export async function fetchSiteSettings(): Promise<SiteSettings> {
-  const { data, error } = await supabase
-    .from('site_settings')
-    .select('*')
-    .eq('id', 1)
-    .maybeSingle();
-  if (error || !data) return defaultSettings;
-  return data as SiteSettings;
+  try {
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error || !data) return defaultSettings;
+    return data as SiteSettings;
+  } catch {
+    return defaultSettings;
+  }
 }
 
 export async function fetchSiteContent(): Promise<SiteContent[]> {
-  const { data, error } = await supabase
-    .from('site_content')
-    .select('*')
-    .order('section')
-    .order('sort_order');
-  if (error || !data) return [];
-  return data as SiteContent[];
+  try {
+    const { data, error } = await supabase
+      .from('site_content')
+      .select('*')
+      .order('section')
+      .order('sort_order');
+    if (error || !data || data.length === 0) return defaultContent;
+    return data as SiteContent[];
+  } catch {
+    return defaultContent;
+  }
 }
 
 const ADMIN_KEY = 'voltstore_admin_user';

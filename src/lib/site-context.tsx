@@ -3,6 +3,7 @@ import {
   fetchSiteContent,
   fetchSiteSettings,
   defaultSettings,
+  defaultContent,
   type SiteContent,
   type SiteSettings,
 } from './site';
@@ -18,7 +19,7 @@ const Ctx = createContext<SiteCtx | null>(null);
 
 export function SiteProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
-  const [content, setContent] = useState<SiteContent[]>([]);
+  const [content, setContent] = useState<SiteContent[]>(defaultContent);
   const [loading, setLoading] = useState(true);
 
   const reload = async () => {
