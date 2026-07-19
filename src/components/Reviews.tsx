@@ -83,7 +83,13 @@ export default function Reviews({ productId }: Props) {
 
       {/* Submit review form */}
       <form onSubmit={submit} className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-sm font-semibold text-slate-900">Write a review</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-slate-900">Write a review</p>
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+            <MessageSquare className="h-3 w-3" />
+            No login needed
+          </span>
+        </div>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1">
             {[1, 2, 3, 4, 5].map((n) => (
@@ -106,6 +112,7 @@ export default function Reviews({ productId }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name (optional)"
+              maxLength={40}
               className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500"
             />
           )}
@@ -114,14 +121,18 @@ export default function Reviews({ productId }: Props) {
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           rows={3}
+          maxLength={500}
           placeholder="Share your experience with this product..."
           className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
         />
-        {error && <p className="mt-2 text-xs font-medium text-rose-600">{error}</p>}
-        {success && <p className="mt-2 text-xs font-medium text-emerald-600">Thanks! Your review was posted.</p>}
+        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+          <span>{comment.length}/500</span>
+          {error && <span className="font-medium text-rose-600">{error}</span>}
+          {success && <span className="font-medium text-emerald-600">Thanks! Your review was posted.</span>}
+        </div>
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || !comment.trim()}
           className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-60"
         >
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
