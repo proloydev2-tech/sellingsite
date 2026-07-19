@@ -8,6 +8,7 @@ import Header from './components/Header';
 import Hero from './components/Hero';
 import CategoryStrip from './components/CategoryStrip';
 import ProductGrid from './components/ProductGrid';
+import GroupedProductGrid from './components/GroupedProductGrid';
 import ProductPage from './components/ProductPage';
 import CartDrawer from './components/CartDrawer';
 import CheckoutModal from './components/CheckoutModal';
@@ -208,14 +209,29 @@ function Store() {
           />
         </div>
 
-        <ProductGrid
-          products={filtered}
-          variantsByProduct={variantsByProduct}
-          onOpen={(slug) => navigate({ name: 'product', slug })}
-          onLoginRequired={() => navigate({ name: 'login' })}
-          loading={loading}
-          title={activeCat ? categories.find((c) => c.slug === activeCat)?.name || 'All products' : 'All products'}
-        />
+        {!activeCat && !search.trim() ? (
+          <GroupedProductGrid
+            products={products}
+            categories={categories}
+            variantsByProduct={variantsByProduct}
+            onOpen={(slug) => navigate({ name: 'product', slug })}
+            onLoginRequired={() => navigate({ name: 'login' })}
+            onJumpCategory={(slug) => {
+              setActiveCat(slug);
+              document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            loading={loading}
+          />
+        ) : (
+          <ProductGrid
+            products={filtered}
+            variantsByProduct={variantsByProduct}
+            onOpen={(slug) => navigate({ name: 'product', slug })}
+            onLoginRequired={() => navigate({ name: 'login' })}
+            loading={loading}
+            title={activeCat ? categories.find((c) => c.slug === activeCat)?.name || 'All products' : 'Search results'}
+          />
+        )}
       </main>
 
       <Features />
