@@ -30,9 +30,9 @@ export default function Header({
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-white shadow-md shadow-emerald-500/20">
             <Zap className="h-5 w-5" strokeWidth={2.5} />
           </div>
-          <div className="hidden text-left leading-tight sm:block">
+          <div className="text-left leading-tight">
             <p className="text-sm font-bold tracking-tight text-slate-900">VoltStore</p>
-            <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">Digital Goods</p>
+            <p className="hidden text-[10px] uppercase tracking-[0.18em] text-emerald-600 sm:block">Digital Goods</p>
           </div>
         </button>
 
