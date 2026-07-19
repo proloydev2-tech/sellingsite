@@ -77,29 +77,35 @@ export function Testimonials() {
           <p className="mt-2 text-sm text-slate-500">Over 50,000 five-star reviews and counting.</p>
         </div>
         <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {reviews.map((r) => {
-            const rating = Number(r.meta?.rating) || 5;
-            const role = r.meta?.role || 'Verified buyer';
-            return (
-              <div key={r.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="flex gap-0.5">
-                  {Array.from({ length: rating }).map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-amber-500 text-amber-500" />
-                  ))}
-                </div>
-                <p className="mt-3 text-sm text-slate-600">"{r.body}"</p>
-                <div className="mt-4 flex items-center gap-3">
-                  <div className="grid h-9 w-9 place-items-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
-                    {r.title[0]}
+          {reviews.length === 0 ? (
+            <div className="sm:col-span-3 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+              Customer reviews coming soon. Be the first to share your experience!
+            </div>
+          ) : (
+            reviews.map((r) => {
+              const rating = Number(r.meta?.rating) || 5;
+              const role = r.meta?.role || 'Verified buyer';
+              return (
+                <div key={r.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: rating }).map((_, i) => (
+                      <Star key={i} className="h-4 w-4 fill-amber-500 text-amber-500" />
+                    ))}
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{r.title}</p>
-                    <p className="text-xs text-slate-500">{role}</p>
+                  <p className="mt-3 text-sm text-slate-600">"{r.body}"</p>
+                  <div className="mt-4 flex items-center gap-3">
+                    <div className="grid h-9 w-9 place-items-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
+                      {r.title[0]}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{r.title}</p>
+                      <p className="text-xs text-slate-500">{role}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
     </section>

@@ -161,7 +161,7 @@ export default function Reviews({ productId }: Props) {
                   ))}
                 </div>
               </div>
-              <p className="mt-2 text-sm text-slate-600">{r.comment}</p>
+              <p className="mt-2 text-sm text-slate-600">{r.comment.replace(/\s*\[seeded\]\s*$/, '')}</p>
             </div>
           ))
         )}

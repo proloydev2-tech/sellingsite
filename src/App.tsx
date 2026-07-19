@@ -236,8 +236,8 @@ function Store() {
 
       <Features />
       <Steps />
-      <Testimonials />
       <FAQ />
+      <Testimonials />
       <CTA onShop={jumpCatalog} />
 
       <Footer />
