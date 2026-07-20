@@ -22,6 +22,7 @@ import AccountPage from './components/AccountPage';
 import MobileNav from './components/MobileNav';
 import ConfigError from './components/ConfigError';
 import PaymentReturn from './components/PaymentReturn';
+import SupportWidget from './components/SupportWidget';
 
 type View = { kind: 'home' } | { kind: 'category'; slug: string };
 type Route =
@@ -282,6 +283,8 @@ function Store() {
         onCart={() => setCartOpen(true)}
       />
       {paymentReturnOpen ? <PaymentReturn onDismiss={() => setPaymentReturnOpen(false)} /> : null}
+
+      <SupportWidget />
     </div>
   );
 }

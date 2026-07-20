@@ -243,5 +243,29 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // -------- get_support --------
+  if (action === "get_support") {
+    const { data, error } = await supabase
+      .from("support_config")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) return json({ ok: false, message: error.message }, 500);
+    return json({ ok: true, data });
+  }
+
+  // -------- update_support --------
+  if (action === "update_support") {
+    const allowed = ["ai_enabled", "ai_welcome", "telegram_url", "whatsapp_url"];
+    const updates: Record<string, any> = {};
+    for (const k of allowed) {
+      if (k in (payload || {})) updates[k] = payload[k];
+    }
+    updates.updated_at = new Date().toISOString();
+    const { error } = await supabase.from("support_config").update(updates).eq("id", 1);
+    if (error) return json({ ok: false, message: error.message }, 500);
+    return json({ ok: true });
+  }
+
   return json({ ok: false, message: "Unknown action" }, 400);
 });

@@ -136,6 +136,7 @@ function TabBtn({ icon, label, active, onClick }: { icon: React.ReactNode; label
 }
 
 function OrdersTab({ orders, orderItems }: { orders: Order[]; orderItems: OrderItem[] }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
   if (orders.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
@@ -145,37 +146,96 @@ function OrdersTab({ orders, orderItems }: { orders: Order[]; orderItems: OrderI
       </div>
     );
   }
+  const statusColor = (s: string) => {
+    const st = (s || '').toLowerCase();
+    if (st === 'paid' || st === 'fulfilled') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    if (st === 'pending') return 'border-amber-200 bg-amber-50 text-amber-700';
+    if (st === 'refunded' || st === 'cancelled') return 'border-rose-200 bg-rose-50 text-rose-700';
+    return 'border-slate-200 bg-slate-50 text-slate-700';
+  };
   return (
     <div className="space-y-3">
       {orders.map((o) => {
         const items = orderItems.filter((i) => i.order_id === o.id);
+        const isOpen = expanded === o.id;
+        const subtotal = items.reduce((s, i) => s + Number(i.price) * i.quantity, 0);
         return (
-          <div key={o.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
+          <div key={o.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <button
+              onClick={() => setExpanded(isOpen ? null : o.id)}
+              className="flex w-full flex-wrap items-start justify-between gap-3 p-5 text-left transition hover:bg-slate-50"
+            >
+              <div className="min-w-0">
                 <p className="font-mono text-sm font-semibold text-slate-900">{o.order_number}</p>
                 <p className="text-xs text-slate-500">{new Date(o.created_at).toLocaleString()}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {items.length} item{items.length !== 1 ? 's' : ''}
+                  {o.payment_method ? ` · ${o.payment_method}` : ''}
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-base font-bold text-slate-900">{formatPrice(Number(o.total))}</p>
-                <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                <span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusColor(o.status)}`}>
                   {o.status}
                 </span>
               </div>
-            </div>
-            <ul className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm text-slate-600">
-              {items.map((i) => (
-                <li key={i.id} className="flex justify-between">
-                  <span>
-                    {i.product_name} <span className="text-slate-400">× {i.quantity}</span>
-                  </span>
-                  <span className="font-medium text-slate-800">{formatPrice(Number(i.price) * i.quantity)}</span>
-                </li>
-              ))}
-            </ul>
+            </button>
+            {isOpen && (
+              <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-4">
+                <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+                  <Meta label="Order #" value={o.order_number} />
+                  <Meta label="Date" value={new Date(o.created_at).toLocaleString()} />
+                  <Meta label="Payment" value={o.payment_method || 'rupantorpay'} />
+                  <Meta label="Status" value={o.status} />
+                  {o.customer_name && <Meta label="Customer" value={o.customer_name} />}
+                  {o.customer_email && <Meta label="Email" value={o.customer_email} />}
+                  {o.customer_whatsapp && <Meta label="WhatsApp" value={o.customer_whatsapp} />}
+                </div>
+                <h4 className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Items</h4>
+                <ul className="space-y-2">
+                  {items.map((i) => (
+                    <li key={i.id} className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-900">{i.product_name}</p>
+                        <p className="text-xs text-slate-500">
+                          {i.variant_label} × {i.quantity} · {formatPrice(Number(i.price))} each
+                        </p>
+                      </div>
+                      <p className="shrink-0 font-semibold text-slate-900">{formatPrice(Number(i.price) * i.quantity)}</p>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-3 space-y-1 border-t border-slate-200 pt-3 text-sm">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal</span>
+                    <span>{formatPrice(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Processing fee</span>
+                    <span>{formatPrice(0)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-slate-900">
+                    <span>Total</span>
+                    <span>{formatPrice(Number(o.total))}</span>
+                  </div>
+                </div>
+                <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  Status meanings: <b>pending</b> = awaiting payment, <b>paid</b> = payment confirmed, <b>fulfilled</b> = delivered, <b>refunded</b> = money returned.
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="truncate text-xs font-medium text-slate-700">{value}</p>
     </div>
   );
 }

@@ -27,6 +27,7 @@ import {
   Mail,
   KeyRound,
   Send,
+  MessageCircle,
 } from 'lucide-react';
 import { supabase, type Category, type Product, type Variant, type Review } from '../lib/supabase';
 import { formatPrice } from '../lib/format';
@@ -1559,6 +1560,7 @@ function IntegrationsAdmin({ adminRole }: { adminRole: 'owner' | 'admin' | null 
   const [google, setGoogle] = useState<any>(null);
   const [rupantor, setRupantor] = useState<any>(null);
   const [telegram, setTelegram] = useState<any>(null);
+  const [support, setSupport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -1569,16 +1571,18 @@ function IntegrationsAdmin({ adminRole }: { adminRole: 'owner' | 'admin' | null 
     setLoading(true);
     setError(null);
     try {
-      const [s, g, r, t] = await Promise.all([
+      const [s, g, r, t, sup] = await Promise.all([
         adminConfigCall('get_smtp').catch(() => null),
         adminConfigCall('get_google').catch(() => null),
         adminConfigCall('get_rupantorpay').catch(() => null),
         adminConfigCall('get_telegram').catch(() => null),
+        adminConfigCall('get_support').catch(() => null),
       ]);
       setSmtp(s?.data || null);
       setGoogle(g?.data || null);
       setRupantor(r?.data || null);
       setTelegram(t?.data || null);
+      setSupport(sup?.data || null);
     } catch (e: any) {
       setError(e.message || 'Failed to load');
     }
@@ -1939,6 +1943,82 @@ function IntegrationsAdmin({ adminRole }: { adminRole: 'owner' | 'admin' | null 
             <li>Paste the bot token and chat ID here, enable, and click Save. Use "Send test message" to verify.</li>
           </ol>
         </div>
+      </div>
+
+      {/* Support channels */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-violet-50 text-violet-600">
+            <MessageCircle className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-slate-900">Support widget</h3>
+            <p className="text-xs text-slate-500">Floating support button on the homepage with free AI chat, Telegram, and WhatsApp shortcuts.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">AI welcome message</label>
+            <textarea
+              disabled={!isOwner}
+              value={support?.ai_welcome || ''}
+              onChange={(e) => setSupport({ ...support, ai_welcome: e.target.value })}
+              rows={2}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="Hi! I am VoltBot, your free AI assistant..."
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">WhatsApp URL / number</label>
+            <input
+              disabled={!isOwner}
+              value={support?.whatsapp_url || ''}
+              onChange={(e) => setSupport({ ...support, whatsapp_url: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="https://wa.me/8801XXXXXXXXX"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Telegram URL / username</label>
+            <input
+              disabled={!isOwner}
+              value={support?.telegram_url || ''}
+              onChange={(e) => setSupport({ ...support, telegram_url: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="@yourbot or https://t.me/yourbot"
+            />
+          </div>
+          <label className="flex items-center gap-2 sm:col-span-2">
+            <input
+              type="checkbox"
+              disabled={!isOwner}
+              checked={!!support?.ai_enabled}
+              onChange={(e) => setSupport({ ...support, ai_enabled: e.target.checked })}
+            />
+            <span className="text-sm font-medium text-slate-700">Enable free AI chat (no API key needed)</span>
+          </label>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            disabled={!isOwner || savingKey === 'support'}
+            onClick={() => save('support', 'update_support', {
+              ai_enabled: !!support?.ai_enabled,
+              ai_welcome: support?.ai_welcome || '',
+              telegram_url: support?.telegram_url || '',
+              whatsapp_url: support?.whatsapp_url || '',
+            })}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-60"
+          >
+            {savingKey === 'support' && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Save className="h-4 w-4" />
+            Save
+          </button>
+        </div>
+        <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+          The AI chat is 100% free — it uses a built-in rule-based assistant that answers questions about your
+          products, pricing, delivery, payments, refunds, and (if the customer is signed in) their order status.
+          No external API key or billing is required.
+        </p>
       </div>
     </div>
   );
