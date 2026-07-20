@@ -12,19 +12,29 @@ import {
   Eye,
   EyeOff,
   LayoutDashboard,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 
 type Props = { onClose: () => void; defaultTab?: 'signin' | 'signup' };
 
-type Mode = 'signin' | 'signup' | 'admin';
+type Mode = 'signin' | 'signup' | 'admin' | 'forgot';
 
 export default function LoginPage({ onClose, defaultTab = 'signin' }: Props) {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, signInAdmin } = useAuth();
+  const {
+    signInWithGoogle,
+    signInWithEmail,
+    sendVerificationCode,
+    verifyCode,
+    signUpWithCode,
+    resetPasswordWithCode,
+    signInAdmin,
+  } = useAuth();
   const [mode, setMode] = useState<Mode>(defaultTab);
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   // sign in
   const [signin, setSignin] = useState({ email: '', password: '' });
@@ -32,6 +42,26 @@ export default function LoginPage({ onClose, defaultTab = 'signin' }: Props) {
   const [signup, setSignup] = useState({ name: '', email: '', phone: '', password: '' });
   // admin
   const [admin, setAdmin] = useState({ username: '', password: '' });
+  // signup verification
+  const [signupCode, setSignupCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+  // forgot password
+  const [forgot, setForgot] = useState({ email: '', code: '', password: '' });
+  const [forgotStage, setForgotStage] = useState<'email' | 'reset'>('email');
+
+  const startResendTimer = () => {
+    setResendIn(60);
+    const t = setInterval(() => {
+      setResendIn((n) => {
+        if (n <= 1) {
+          clearInterval(t);
+          return 0;
+        }
+        return n - 1;
+      });
+    }, 1000);
+  };
 
   const handleGoogle = async () => {
     setLoading(true);
@@ -53,21 +83,45 @@ export default function LoginPage({ onClose, defaultTab = 'signin' }: Props) {
     setLoading(false);
   };
 
+  const handleSendSignupCode = async () => {
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+    const { error } = await sendVerificationCode(signup.email, 'signup');
+    if (error) setError(error);
+    else {
+      setCodeSent(true);
+      setInfo('A 6-digit code was sent to your email. Enter it below to finish signing up.');
+      startResendTimer();
+    }
+    setLoading(false);
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error } = await signUpWithEmail(
+    setInfo(null);
+    if (!signupCode.trim()) {
+      setError('Please enter the 6-digit code sent to your email.');
+      setLoading(false);
+      return;
+    }
+    const { error } = await signUpWithCode(
       signup.email,
       signup.password,
       signup.name,
       signup.phone,
+      signupCode.trim(),
     );
     if (error) setError(error);
     else {
       setError(null);
+      setInfo('Account created. You can now sign in.');
       setMode('signin');
       setSignin({ email: signup.email, password: '' });
+      setCodeSent(false);
+      setSignupCode('');
     }
     setLoading(false);
   };
@@ -81,6 +135,38 @@ export default function LoginPage({ onClose, defaultTab = 'signin' }: Props) {
     else {
       window.location.hash = '/admin';
       onClose();
+    }
+    setLoading(false);
+  };
+
+  // Forgot password handlers
+  const handleSendResetCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+    const { error } = await sendVerificationCode(forgot.email, 'reset');
+    if (error) setError(error);
+    else {
+      setInfo('A reset code was sent to your email. Enter it below with your new password.');
+      setForgotStage('reset');
+    }
+    setLoading(false);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+    const { error } = await resetPasswordWithCode(forgot.email, forgot.password, forgot.code.trim());
+    if (error) setError(error);
+    else {
+      setInfo('Password reset. You can now sign in.');
+      setMode('signin');
+      setSignin({ email: forgot.email, password: '' });
+      setForgot({ email: '', code: '', password: '' });
+      setForgotStage('email');
     }
     setLoading(false);
   };
@@ -103,18 +189,23 @@ export default function LoginPage({ onClose, defaultTab = 'signin' }: Props) {
                 <Zap className="h-7 w-7" strokeWidth={2.5} />
               </div>
               <h1 className="mt-5 text-2xl font-bold text-slate-900">
-                {mode === 'signup' ? 'Create your account' : mode === 'admin' ? 'Admin login' : 'Welcome back'}
+                {mode === 'signup' ? 'Create your account'
+                  : mode === 'admin' ? 'Admin login'
+                  : mode === 'forgot' ? 'Reset password'
+                  : 'Welcome back'}
               </h1>
               <p className="mt-1.5 text-sm text-slate-500">
                 {mode === 'signup'
                   ? 'Sign up to track orders, save favorites, and checkout faster.'
                   : mode === 'admin'
                     ? 'Sign in to the admin panel.'
-                    : 'Sign in to continue to VoltStore.'}
+                    : mode === 'forgot'
+                      ? 'Enter your email to receive a reset code.'
+                      : 'Sign in to continue to VoltStore.'}
               </p>
             </div>
 
-            {mode !== 'admin' && (
+            {mode !== 'admin' && mode !== 'forgot' && (
               <>
                 <button
                   onClick={handleGoogle}
@@ -174,12 +265,21 @@ export default function LoginPage({ onClose, defaultTab = 'signin' }: Props) {
                   Sign in
                 </button>
 
-                <p className="text-center text-sm text-slate-500">
-                  Don't have an account?{' '}
-                  <button type="button" onClick={() => { setMode('signup'); setError(null); }} className="font-semibold text-emerald-600 hover:text-emerald-700">
-                    Sign up
+                <div className="flex items-center justify-between text-sm">
+                  <p className="text-slate-500">
+                    Don't have an account?{' '}
+                    <button type="button" onClick={() => { setMode('signup'); setError(null); setInfo(null); }} className="font-semibold text-emerald-600 hover:text-emerald-700">
+                      Sign up
+                    </button>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setMode('forgot'); setError(null); setInfo(null); }}
+                    className="font-semibold text-emerald-600 hover:text-emerald-700"
+                  >
+                    Forgot?
                   </button>
-                </p>
+                </div>
               </form>
             )}
 
@@ -233,24 +333,139 @@ export default function LoginPage({ onClose, defaultTab = 'signin' }: Props) {
                   </button>
                 </Field>
 
-                {error && <ErrorBox text={error} />}
+                {codeSent && (
+                  <Field label="Email verification code" icon={<KeyRound className="h-4 w-4" />}>
+                    <input
+                      required
+                      inputMode="numeric"
+                      pattern="[0-9]{6}"
+                      maxLength={6}
+                      value={signupCode}
+                      onChange={(e) => setSignupCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="6-digit code"
+                      className="w-full bg-transparent text-sm tracking-widest outline-none placeholder:text-slate-400"
+                    />
+                  </Field>
+                )}
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:opacity-60"
-                >
-                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create account
-                </button>
+                {error && <ErrorBox text={error} />}
+                {info && <InfoBox text={info} />}
+
+                {!codeSent ? (
+                  <button
+                    type="button"
+                    onClick={handleSendSignupCode}
+                    disabled={loading || !signup.email || !signup.password || !signup.name || !signup.phone}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:opacity-60"
+                  >
+                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Send verification code
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:opacity-60"
+                  >
+                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Verify & create account
+                  </button>
+                )}
+
+                {codeSent && (
+                  <button
+                    type="button"
+                    onClick={handleSendSignupCode}
+                    disabled={resendIn > 0}
+                    className="w-full text-center text-xs font-medium text-slate-500 hover:text-slate-800 disabled:opacity-60"
+                  >
+                    {resendIn > 0 ? `Resend code in ${resendIn}s` : 'Resend code'}
+                  </button>
+                )}
 
                 <p className="text-center text-sm text-slate-500">
                   Already have an account?{' '}
-                  <button type="button" onClick={() => { setMode('signin'); setError(null); }} className="font-semibold text-emerald-600 hover:text-emerald-700">
+                  <button type="button" onClick={() => { setMode('signin'); setError(null); setInfo(null); }} className="font-semibold text-emerald-600 hover:text-emerald-700">
                     Sign in
                   </button>
                 </p>
               </form>
+            )}
+
+            {mode === 'forgot' && (
+              forgotStage === 'email' ? (
+                <form onSubmit={handleSendResetCode} className="space-y-3">
+                  <Field label="Email" icon={<Mail className="h-4 w-4" />}>
+                    <input
+                      type="email"
+                      required
+                      value={forgot.email}
+                      onChange={(e) => setForgot({ ...forgot, email: e.target.value })}
+                      placeholder="you@example.com"
+                      className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                    />
+                  </Field>
+                  {error && <ErrorBox text={error} />}
+                  {info && <InfoBox text={info} />}
+                  <button
+                    type="submit"
+                    disabled={loading || !forgot.email}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:opacity-60"
+                  >
+                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Send reset code
+                  </button>
+                  <p className="text-center text-sm text-slate-500">
+                    Remembered it?{' '}
+                    <button type="button" onClick={() => { setMode('signin'); setError(null); setInfo(null); }} className="font-semibold text-emerald-600 hover:text-emerald-700">
+                      Back to sign in
+                    </button>
+                  </p>
+                </form>
+              ) : (
+                <form onSubmit={handleResetPassword} className="space-y-3">
+                  <Field label="Reset code" icon={<KeyRound className="h-4 w-4" />}>
+                    <input
+                      required
+                      inputMode="numeric"
+                      pattern="[0-9]{6}"
+                      maxLength={6}
+                      value={forgot.code}
+                      onChange={(e) => setForgot({ ...forgot, code: e.target.value.replace(/\D/g, '') })}
+                      placeholder="6-digit code"
+                      className="w-full bg-transparent text-sm tracking-widest outline-none placeholder:text-slate-400"
+                    />
+                  </Field>
+                  <Field label="New password" icon={<Lock className="h-4 w-4" />}>
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      value={forgot.password}
+                      onChange={(e) => setForgot({ ...forgot, password: e.target.value })}
+                      placeholder="At least 6 characters"
+                      className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass(!showPass)}
+                      className="text-slate-400 hover:text-slate-700"
+                    >
+                      {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </Field>
+                  {error && <ErrorBox text={error} />}
+                  {info && <InfoBox text={info} />}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:opacity-60"
+                  >
+                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Reset password
+                  </button>
+                </form>
+              )
             )}
 
             {mode === 'admin' && (
@@ -297,7 +512,7 @@ export default function LoginPage({ onClose, defaultTab = 'signin' }: Props) {
 
             <div className="mt-4 flex justify-center">
               <button
-                onClick={() => { setMode(mode === 'admin' ? 'signin' : 'admin'); setError(null); }}
+                onClick={() => { setMode(mode === 'admin' ? 'signin' : 'admin'); setError(null); setInfo(null); }}
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800"
               >
                 <LayoutDashboard className="h-3.5 w-3.5" />
@@ -305,7 +520,7 @@ export default function LoginPage({ onClose, defaultTab = 'signin' }: Props) {
               </button>
             </div>
 
-            {mode !== 'admin' && (
+            {mode !== 'admin' && mode !== 'forgot' && (
               <div className="mt-5 rounded-xl bg-slate-50 p-3">
                 <ul className="space-y-1.5 text-xs text-slate-600">
                   <li className="flex items-center gap-2">
@@ -345,6 +560,14 @@ function Field({ label, icon, children }: { label: string; icon: React.ReactNode
 function ErrorBox({ text }: { text: string }) {
   return (
     <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+      {text}
+    </div>
+  );
+}
+
+function InfoBox({ text }: { text: string }) {
+  return (
+    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
       {text}
     </div>
   );

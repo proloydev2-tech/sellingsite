@@ -22,17 +22,21 @@ import {
   Settings,
   Save,
   GripVertical,
+  UserCog,
+  Plug,
+  Mail,
+  KeyRound,
 } from 'lucide-react';
 import { supabase, type Category, type Product, type Variant, type Review } from '../lib/supabase';
 import { formatPrice } from '../lib/format';
-import { useAuth } from '../lib/auth';
+import { useAuth, getAdminCreds } from '../lib/auth';
 import {
   adminGetSettings, adminUpdateSettings, adminListContent, adminUpsertContent, adminDeleteContent,
   type SiteSettings, type SiteContent,
 } from '../lib/site';
 
 type Props = { onExit: () => void };
-type Tab = 'dashboard' | 'products' | 'categories' | 'orders' | 'reviews' | 'site';
+type Tab = 'dashboard' | 'products' | 'categories' | 'orders' | 'reviews' | 'site' | 'admins' | 'integrations';
 
 const TAB_FROM_HASH: Record<string, Tab> = {
   '': 'dashboard',
@@ -42,6 +46,8 @@ const TAB_FROM_HASH: Record<string, Tab> = {
   orders: 'orders',
   reviews: 'reviews',
   site: 'site',
+  admins: 'admins',
+  integrations: 'integrations',
 };
 
 function parseAdminTab(): Tab {
@@ -55,7 +61,7 @@ function setAdminTabInHash(t: Tab) {
 }
 
 export default function AdminApp({ onExit }: Props) {
-  const { adminUser, signOutAdmin } = useAuth();
+  const { adminUser, adminRole, signOutAdmin } = useAuth();
   const [tab, setTab] = useState<Tab>(parseAdminTab);
 
   useEffect(() => {
@@ -139,7 +145,7 @@ export default function AdminApp({ onExit }: Props) {
             <h1 className="text-base font-bold text-slate-900">Admin panel</h1>
             {adminUser && (
               <span className="hidden rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 sm:inline">
-                @{adminUser}
+                @{adminUser} {adminRole === 'owner' ? '· owner' : ''}
               </span>
             )}
           </div>
@@ -150,6 +156,8 @@ export default function AdminApp({ onExit }: Props) {
             <TabBtn icon={<Receipt className="h-4 w-4" />} label="Orders" active={tab === 'orders'} onClick={() => switchTab('orders')} />
             <TabBtn icon={<MessageSquare className="h-4 w-4" />} label="Reviews" active={tab === 'reviews'} onClick={() => switchTab('reviews')} />
             <TabBtn icon={<Settings className="h-4 w-4" />} label="Site" active={tab === 'site'} onClick={() => switchTab('site')} />
+            <TabBtn icon={<UserCog className="h-4 w-4" />} label="Admins" active={tab === 'admins'} onClick={() => switchTab('admins')} />
+            <TabBtn icon={<Plug className="h-4 w-4" />} label="Integrations" active={tab === 'integrations'} onClick={() => switchTab('integrations')} />
             <button
               onClick={handleAdminLogout}
               className="ml-1 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
@@ -182,6 +190,10 @@ export default function AdminApp({ onExit }: Props) {
           <OrdersAdmin orders={orders} orderItems={orderItems} onChange={load} />
         ) : tab === 'reviews' ? (
           <ReviewsAdmin reviews={reviews} products={products} onChange={load} />
+        ) : tab === 'admins' ? (
+          <AdminsAdmin adminRole={adminRole} currentUsername={adminUser} />
+        ) : tab === 'integrations' ? (
+          <IntegrationsAdmin adminRole={adminRole} />
         ) : (
           <SiteAdmin />
         )}
@@ -1097,7 +1109,8 @@ function SiteAdmin() {
       )}
 
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
-        Note: deployment-only secrets (Google OAuth keys, RupantorPay API key, Supabase keys) are NOT editable here — they live in Supabase project secrets. This tab manages storefront content only.
+        This tab manages storefront content (hero, footer, features, testimonials, FAQ). For Google OAuth,
+        RupantorPay, and SMTP settings, use the Integrations tab.
       </p>
 
       {(section === 'general' || section === 'hero' || section === 'footer') && (
@@ -1336,3 +1349,501 @@ function ContentRowEditor({
     </div>
   );
 }
+
+// ---------------- Admins management ----------------
+
+type AdminRow = {
+  id: string;
+  username: string;
+  email: string | null;
+  role: 'owner' | 'admin';
+  created_at: string;
+};
+
+async function adminConfigCall(action: string, payload: Record<string, unknown> = {}) {
+  const admin = getAdminCreds();
+  if (!admin) throw new Error('Not signed in as admin');
+  const { data, error } = await supabase.functions.invoke('admin-config', {
+    body: { action, admin, payload },
+  });
+  if (error) throw new Error(error.message);
+  if (!data?.ok) throw new Error(data?.message || 'Request failed');
+  return data;
+}
+
+function AdminsAdmin({ adminRole, currentUsername }: { adminRole: 'owner' | 'admin' | null; currentUsername: string | null }) {
+  const [admins, setAdmins] = useState<AdminRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({ username: '', password: '', email: '' });
+  const [creating, setCreating] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await adminConfigCall('list_admins');
+      setAdmins(res.data || []);
+    } catch (e: any) {
+      setError(e.message || 'Failed to load admins');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const createAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    setError(null);
+    try {
+      await adminConfigCall('create_admin', {
+        username: form.username,
+        password: form.password,
+        email: form.email,
+      });
+      setForm({ username: '', password: '', email: '' });
+      setToast('Admin created');
+      await load();
+    } catch (e: any) {
+      setError(e.message || 'Failed to create admin');
+    }
+    setCreating(false);
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  const deleteAdmin = async (id: string) => {
+    if (!confirm('Delete this admin account?')) return;
+    try {
+      await adminConfigCall('delete_admin', { id });
+      await load();
+    } catch (e: any) {
+      setError(e.message || 'Failed to delete admin');
+    }
+  };
+
+  const isOwner = adminRole === 'owner';
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-slate-900">Admin accounts ({admins.length})</h2>
+      </div>
+
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">{error}</div>
+      )}
+      {toast && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{toast}</div>
+      )}
+
+      {!isOwner && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
+          Only the owner account can create or delete admin accounts. You are signed in as an admin.
+        </div>
+      )}
+
+      {loading ? (
+        <div className="grid place-items-center py-12 text-slate-400"><Loader2 className="h-7 w-7 animate-spin" /></div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Username</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">Created</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {admins.map((a) => (
+                <tr key={a.id} className="border-b border-slate-100 last:border-0">
+                  <td className="px-4 py-3 font-semibold text-slate-900">
+                    @{a.username}
+                    {a.username === currentUsername && <span className="ml-2 text-xs text-emerald-600">(you)</span>}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{a.email || '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      a.role === 'owner' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'
+                    }`}>
+                      {a.role === 'owner' ? <CheckCircle2 className="h-3 w-3" /> : <UserCog className="h-3 w-3" />}
+                      {a.role}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{new Date(a.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-right">
+                    {isOwner && a.role !== 'owner' && (
+                      <button
+                        onClick={() => deleteAdmin(a.id)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {isOwner && (
+        <form onSubmit={createAdmin} className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-700">
+            <Plus className="h-4 w-4" />
+            Create new admin
+          </h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Username</label>
+              <input
+                required
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                placeholder="newadmin"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Password</label>
+              <input
+                required
+                type="text"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                placeholder="set a password"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Email (optional)</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                placeholder="admin@voltstore.shop"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="submit"
+              disabled={creating}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-60"
+            >
+              {creating && <Loader2 className="h-4 w-4 animate-spin" />}
+              Create admin
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+// ---------------- Integrations (Google, RupantorPay, SMTP) ----------------
+
+function IntegrationsAdmin({ adminRole }: { adminRole: 'owner' | 'admin' | null }) {
+  const isOwner = adminRole === 'owner';
+  const [smtp, setSmtp] = useState<any>(null);
+  const [google, setGoogle] = useState<any>(null);
+  const [rupantor, setRupantor] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [s, g, r] = await Promise.all([
+        adminConfigCall('get_smtp').catch(() => null),
+        adminConfigCall('get_google').catch(() => null),
+        adminConfigCall('get_rupantorpay').catch(() => null),
+      ]);
+      setSmtp(s?.data || null);
+      setGoogle(g?.data || null);
+      setRupantor(r?.data || null);
+    } catch (e: any) {
+      setError(e.message || 'Failed to load');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const save = async (key: string, action: string, payload: Record<string, unknown>) => {
+    setSavingKey(key);
+    setError(null);
+    try {
+      await adminConfigCall(action, payload);
+      setToast('Saved');
+      await load();
+    } catch (e: any) {
+      setError(e.message || 'Failed to save');
+    }
+    setSavingKey(null);
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  if (loading) {
+    return <div className="grid place-items-center py-12 text-slate-400"><Loader2 className="h-7 w-7 animate-spin" /></div>;
+  }
+
+  return (
+    <div className="space-y-5">
+      <h2 className="text-lg font-bold text-slate-900">Integrations</h2>
+
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">{error}</div>
+      )}
+      {toast && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{toast}</div>
+      )}
+
+      {!isOwner && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
+          Only the owner account can edit integration keys. You are signed in as an admin.
+        </div>
+      )}
+
+      {/* Google OAuth */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-blue-50 text-blue-600">
+            <KeyRound className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-slate-900">Google OAuth</h3>
+            <p className="text-xs text-slate-500">Client ID & secret for "Continue with Google" sign-in.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Client ID</label>
+            <input
+              disabled={!isOwner}
+              value={google?.client_id || ''}
+              onChange={(e) => setGoogle({ ...google, client_id: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="xxxxx.apps.googleusercontent.com"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Client secret</label>
+            <input
+              disabled={!isOwner}
+              type="password"
+              value={google?.client_secret || ''}
+              onChange={(e) => setGoogle({ ...google, client_secret: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="GOCSPX-xxxxx"
+            />
+          </div>
+          <label className="flex items-center gap-2 sm:col-span-2">
+            <input
+              type="checkbox"
+              disabled={!isOwner}
+              checked={!!google?.enabled}
+              onChange={(e) => setGoogle({ ...google, enabled: e.target.checked })}
+            />
+            <span className="text-sm font-medium text-slate-700">Enable Google sign-in</span>
+          </label>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            disabled={!isOwner || savingKey === 'google'}
+            onClick={() => save('google', 'update_google', {
+              client_id: google?.client_id || '',
+              client_secret: google?.client_secret || '',
+              enabled: !!google?.enabled,
+            })}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-60"
+          >
+            {savingKey === 'google' && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Save className="h-4 w-4" />
+            Save
+          </button>
+        </div>
+        <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          Note: to activate Google sign-in you also need to enable the Google provider in your Supabase dashboard
+          (Authentication → Providers → Google) with the same client ID/secret. This form stores the values
+          here for reference; the actual OAuth flow reads from Supabase project config.
+        </p>
+      </div>
+
+      {/* RupantorPay */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
+            <DollarSign className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-slate-900">RupantorPay</h3>
+            <p className="text-xs text-slate-500">API key for the RupantorPay payment gateway (bKash, Nagad, Rocket, cards).</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">API key</label>
+            <input
+              disabled={!isOwner}
+              type="password"
+              value={rupantor?.api_key || ''}
+              onChange={(e) => setRupantor({ ...rupantor, api_key: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="rupantorpay live api key"
+            />
+          </div>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              disabled={!isOwner}
+              checked={!!rupantor?.enabled}
+              onChange={(e) => setRupantor({ ...rupantor, enabled: e.target.checked })}
+            />
+            <span className="text-sm font-medium text-slate-700">Enabled</span>
+          </label>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            disabled={!isOwner || savingKey === 'rupantor'}
+            onClick={() => save('rupantor', 'update_rupantorpay', {
+              api_key: rupantor?.api_key || '',
+              enabled: !!rupantor?.enabled,
+            })}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-60"
+          >
+            {savingKey === 'rupantor' && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Save className="h-4 w-4" />
+            Save
+          </button>
+        </div>
+        <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          Tip: for the change to take effect immediately on the checkout edge function, also set the
+          <span className="font-mono"> RUPANTORPAY_API_KEY </span> secret in your Supabase project settings.
+          Saving here updates the database config used as a fallback.
+        </p>
+      </div>
+
+      {/* SMTP */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-cyan-50 text-cyan-600">
+            <Mail className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-slate-900">SMTP</h3>
+            <p className="text-xs text-slate-500">SMTP server for sending order confirmation and verification code emails.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">SMTP host</label>
+            <input
+              disabled={!isOwner}
+              value={smtp?.host || ''}
+              onChange={(e) => setSmtp({ ...smtp, host: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="smtp.gmail.com"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Port</label>
+            <input
+              disabled={!isOwner}
+              type="number"
+              value={smtp?.port ?? 587}
+              onChange={(e) => setSmtp({ ...smtp, port: Number(e.target.value) })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="587"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Username</label>
+            <input
+              disabled={!isOwner}
+              value={smtp?.username || ''}
+              onChange={(e) => setSmtp({ ...smtp, username: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="you@gmail.com"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Password</label>
+            <input
+              disabled={!isOwner}
+              type="password"
+              value={smtp?.password || ''}
+              onChange={(e) => setSmtp({ ...smtp, password: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="app password"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">From email</label>
+            <input
+              disabled={!isOwner}
+              type="email"
+              value={smtp?.from_email || ''}
+              onChange={(e) => setSmtp({ ...smtp, from_email: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="noreply@voltstore.shop"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">From name</label>
+            <input
+              disabled={!isOwner}
+              value={smtp?.from_name || ''}
+              onChange={(e) => setSmtp({ ...smtp, from_name: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="VoltStore"
+            />
+          </div>
+          <label className="flex items-center gap-2 sm:col-span-2">
+            <input
+              type="checkbox"
+              disabled={!isOwner}
+              checked={!!smtp?.secure}
+              onChange={(e) => setSmtp({ ...smtp, secure: e.target.checked })}
+            />
+            <span className="text-sm font-medium text-slate-700">Use SSL/TLS (port 465 typically uses this)</span>
+          </label>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            disabled={!isOwner || savingKey === 'smtp'}
+            onClick={() => save('smtp', 'update_smtp', {
+              host: smtp?.host || '',
+              port: Number(smtp?.port) || 587,
+              username: smtp?.username || '',
+              password: smtp?.password || '',
+              from_email: smtp?.from_email || '',
+              from_name: smtp?.from_name || '',
+              secure: !!smtp?.secure,
+            })}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-60"
+          >
+            {savingKey === 'smtp' && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Save className="h-4 w-4" />
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+

@@ -9,8 +9,12 @@ type AuthCtx = {
   loading: boolean;
   isAdmin: boolean;
   adminUser: string | null;
+  adminRole: 'owner' | 'admin' | null;
   signInWithGoogle: () => Promise<void>;
-  signUpWithEmail: (email: string, password: string, fullName: string, phone: string) => Promise<{ error: string | null }>;
+  sendVerificationCode: (email: string, purpose: 'signup' | 'login' | 'reset') => Promise<{ error: string | null }>;
+  verifyCode: (email: string, code: string, purpose: 'signup' | 'login' | 'reset') => Promise<{ error: string | null }>;
+  signUpWithCode: (email: string, password: string, fullName: string, phone: string, code: string) => Promise<{ error: string | null }>;
+  resetPasswordWithCode: (email: string, password: string, code: string) => Promise<{ error: string | null }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
   signInAdmin: (username: string, password: string) => Promise<{ error: string | null }>;
   signOutAdmin: () => void;
@@ -20,6 +24,7 @@ type AuthCtx = {
 const Ctx = createContext<AuthCtx | null>(null);
 
 const ADMIN_KEY = 'voltstore_admin_user';
+const ADMIN_PASS_KEY = 'voltstore_admin_pass';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -32,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
   });
+  const [adminRole, setAdminRole] = useState<'owner' | 'admin' | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +78,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [session?.user?.id]);
 
+  // When adminUser is set, fetch role from admin_users table
+  useEffect(() => {
+    if (!adminUser) {
+      setAdminRole(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('admin_users')
+        .select('role')
+        .eq('username', adminUser)
+        .maybeSingle();
+      if (!cancelled) setAdminRole((data?.role as 'owner' | 'admin') || 'admin');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [adminUser]);
+
   const value = useMemo<AuthCtx>(
     () => ({
       session,
@@ -80,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isAdmin: !!adminUser,
       adminUser,
+      adminRole,
       signInWithGoogle: async () => {
         const redirectTo = `${window.location.origin}/`;
         await supabase.auth.signInWithOAuth({
@@ -87,17 +114,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           options: { redirectTo },
         });
       },
-      signUpWithEmail: async (email, password, fullName, phone) => {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: fullName, phone } },
-        });
-        if (error) return { error: error.message };
-        if (data.user && !data.session) {
-          return { error: 'Check your email to confirm your account.' };
+      sendVerificationCode: async (email, purpose) => {
+        try {
+          const { data, error } = await supabase.functions.invoke('auth-verify', {
+            body: { action: 'send_code', email, purpose },
+          });
+          if (error) return { error: error.message };
+          if (!data?.ok) return { error: data?.message || 'Failed to send code' };
+          return { error: null };
+        } catch (e: any) {
+          return { error: e?.message || 'Network error' };
         }
-        return { error: null };
+      },
+      verifyCode: async (email, code, purpose) => {
+        try {
+          const { data, error } = await supabase.functions.invoke('auth-verify', {
+            body: { action: 'verify_code', email, code, purpose },
+          });
+          if (error) return { error: error.message };
+          if (!data?.ok) return { error: data?.message || 'Invalid code' };
+          return { error: null };
+        } catch (e: any) {
+          return { error: e?.message || 'Network error' };
+        }
+      },
+      signUpWithCode: async (email, password, fullName, phone, code) => {
+        try {
+          const { data, error } = await supabase.functions.invoke('auth-verify', {
+            body: { action: 'signup', email, password, full_name: fullName, phone, code },
+          });
+          if (error) return { error: error.message };
+          if (!data?.ok) return { error: data?.message || 'Signup failed' };
+          return { error: null };
+        } catch (e: any) {
+          return { error: e?.message || 'Network error' };
+        }
+      },
+      resetPasswordWithCode: async (email, password, code) => {
+        try {
+          const { data, error } = await supabase.functions.invoke('auth-verify', {
+            body: { action: 'reset_password', email, password, code },
+          });
+          if (error) return { error: error.message };
+          if (!data?.ok) return { error: data?.message || 'Reset failed' };
+          return { error: null };
+        } catch (e: any) {
+          return { error: e?.message || 'Network error' };
+        }
       },
       signInWithEmail: async (email, password) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -108,16 +171,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const { data, error } = await supabase
             .from('admin_users')
-            .select('username')
+            .select('username, role')
             .eq('username', username.trim())
             .eq('password', password)
             .maybeSingle();
           if (error) return { error: `DB error: ${error.message || 'Login query failed.'}` };
           if (!data) return { error: 'Invalid admin credentials.' };
           setAdminUser(data.username);
+          setAdminRole((data.role as 'owner' | 'admin') || 'admin');
           try {
             localStorage.setItem(ADMIN_KEY, data.username);
-            localStorage.setItem('voltstore_admin_pass', password);
+            localStorage.setItem(ADMIN_PASS_KEY, password);
           } catch {
             // ignore
           }
@@ -129,9 +193,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signOutAdmin: () => {
         setAdminUser(null);
+        setAdminRole(null);
         try {
           localStorage.removeItem(ADMIN_KEY);
-          localStorage.removeItem('voltstore_admin_pass');
+          localStorage.removeItem(ADMIN_PASS_KEY);
         } catch {
           // ignore
         }
@@ -140,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.auth.signOut();
       },
     }),
-    [session, profile, loading, adminUser],
+    [session, profile, loading, adminUser, adminRole],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -150,4 +215,15 @@ export function useAuth() {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
+}
+
+export function getAdminCreds(): { username: string; password: string } | null {
+  try {
+    const username = localStorage.getItem(ADMIN_KEY);
+    const password = localStorage.getItem(ADMIN_PASS_KEY);
+    if (username && password) return { username, password };
+  } catch {
+    // ignore
+  }
+  return null;
 }

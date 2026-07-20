@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,6 +16,29 @@ function json(body: unknown, status = 200) {
   });
 }
 
+async function getApiKey(): Promise<string | null> {
+  // 1) Try edge function secret
+  const envKey = Deno.env.get("RUPANTORPAY_API_KEY");
+  if (envKey) return envKey;
+  // 2) Fall back to database config (admin-editable)
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+    const { data } = await supabase
+      .from("rupantorpay_config")
+      .select("api_key, enabled")
+      .eq("id", 1)
+      .maybeSingle();
+    if (data?.enabled && data.api_key) return data.api_key as string;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -23,7 +47,7 @@ Deno.serve(async (req: Request) => {
     return json({ status: false, message: "Method not allowed" }, 405);
   }
 
-  const apiKey = Deno.env.get("RUPANTORPAY_API_KEY");
+  const apiKey = await getApiKey();
   if (!apiKey) {
     return json({ status: false, message: "Payment gateway not configured on server" }, 500);
   }

@@ -62,6 +62,9 @@ export default function CheckoutModal({ open, onClose, onSuccess }: Props) {
       }));
       await supabase.from('order_items').insert(orderItems);
 
+      // Send order placed email to customer (best-effort, don't block checkout)
+      supabase.functions.invoke('order-email', { body: { order_id: orderId } }).catch(() => {});
+
       const origin = window.location.origin;
       const result = await createPayment({
         fullname: form.name,
