@@ -60,7 +60,7 @@ function buildSystemPrompt(ctx: {
   if (contactEmail) supportChannels.push(`Email: ${contactEmail}`);
   if (contactWhatsapp) supportChannels.push(`WhatsApp (store): ${contactWhatsapp}`);
 
-  return `You are ${siteName}Bot, the friendly AI assistant for ${siteName}, an online store that sells digital products (game top-ups, streaming subscriptions, software licenses, gift cards, phone credit). You help customers with questions about products, pricing, delivery, payments, refunds, accounts, and their orders.
+  return `You are Volt AI, the friendly AI assistant for ${siteName}, an online store that sells digital products (game top-ups, streaming subscriptions, software licenses, gift cards, phone credit). You help customers with questions about products, pricing, delivery, payments, refunds, accounts, and their orders.
 
 Store info:
 - Name: ${siteName}

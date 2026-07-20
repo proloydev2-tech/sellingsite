@@ -1965,7 +1965,7 @@ function IntegrationsAdmin({ adminRole }: { adminRole: 'owner' | 'admin' | null 
               onChange={(e) => setSupport({ ...support, ai_welcome: e.target.value })}
               rows={2}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
-              placeholder="Hi! I am VoltBot, your free AI assistant..."
+              placeholder="Hi! I am Volt AI, your free AI assistant..."
             />
           </div>
           <div>

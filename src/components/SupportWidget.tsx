@@ -109,7 +109,7 @@ export default function SupportWidget() {
                   <Bot className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold leading-tight">VoltBot Support</p>
+                  <p className="text-sm font-bold leading-tight">Volt AI Support</p>
                   <p className="flex items-center gap-1 text-[11px] text-white/85">
                     <span className="h-1.5 w-1.5 rounded-full bg-green-300"></span>
                     {config?.ai_enabled ? 'AI online · typically replies instantly' : 'Online'}
