@@ -187,5 +187,61 @@ Deno.serve(async (req: Request) => {
     return json({ ok: true });
   }
 
+  // -------- get_telegram --------
+  if (action === "get_telegram") {
+    const { data, error } = await supabase
+      .from("telegram_config")
+      .select("id, bot_token, chat_id, enabled, updated_at")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) return json({ ok: false, message: error.message }, 500);
+    return json({ ok: true, data });
+  }
+
+  // -------- update_telegram --------
+  if (action === "update_telegram") {
+    const allowed = ["bot_token", "chat_id", "enabled"];
+    const updates: Record<string, any> = {};
+    for (const k of allowed) {
+      if (k in (payload || {})) updates[k] = payload[k];
+    }
+    updates.updated_at = new Date().toISOString();
+    const { error } = await supabase.from("telegram_config").update(updates).eq("id", 1);
+    if (error) return json({ ok: false, message: error.message }, 500);
+    return json({ ok: true });
+  }
+
+  // -------- test_telegram: send a test message --------
+  if (action === "test_telegram") {
+    const { data, error } = await supabase
+      .from("telegram_config")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error || !data) return json({ ok: false, message: error?.message || "Not configured" }, 500);
+    if (!data.bot_token || !data.chat_id) {
+      return json({ ok: false, message: "Bot token and chat ID are required" }, 400);
+    }
+    try {
+      const url = `https://api.telegram.org/bot${data.bot_token}/sendMessage`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: data.chat_id,
+          text: "✅ *VoltStore Telegram test*\nNotifications are working correctly.",
+          parse_mode: "Markdown",
+        }),
+      });
+      const result = await res.json();
+      if (!result.ok) {
+        return json({ ok: false, message: result.description || "Telegram API error" }, 500);
+      }
+      return json({ ok: true });
+    } catch (err) {
+      return json({ ok: false, message: String(err) }, 500);
+    }
+  }
+
   return json({ ok: false, message: "Unknown action" }, 400);
 });

@@ -65,6 +65,9 @@ export default function CheckoutModal({ open, onClose, onSuccess }: Props) {
       // Send order placed email to customer (best-effort, don't block checkout)
       supabase.functions.invoke('order-email', { body: { order_id: orderId } }).catch(() => {});
 
+      // Send Telegram notification to admin chat (best-effort)
+      supabase.functions.invoke('telegram-notify', { body: { order_id: orderId } }).catch(() => {});
+
       const origin = window.location.origin;
       const result = await createPayment({
         fullname: form.name,

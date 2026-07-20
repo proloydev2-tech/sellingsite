@@ -26,6 +26,7 @@ import {
   Plug,
   Mail,
   KeyRound,
+  Send,
 } from 'lucide-react';
 import { supabase, type Category, type Product, type Variant, type Review } from '../lib/supabase';
 import { formatPrice } from '../lib/format';
@@ -1557,23 +1558,27 @@ function IntegrationsAdmin({ adminRole }: { adminRole: 'owner' | 'admin' | null 
   const [smtp, setSmtp] = useState<any>(null);
   const [google, setGoogle] = useState<any>(null);
   const [rupantor, setRupantor] = useState<any>(null);
+  const [telegram, setTelegram] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [testingTelegram, setTestingTelegram] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [s, g, r] = await Promise.all([
+      const [s, g, r, t] = await Promise.all([
         adminConfigCall('get_smtp').catch(() => null),
         adminConfigCall('get_google').catch(() => null),
         adminConfigCall('get_rupantorpay').catch(() => null),
+        adminConfigCall('get_telegram').catch(() => null),
       ]);
       setSmtp(s?.data || null);
       setGoogle(g?.data || null);
       setRupantor(r?.data || null);
+      setTelegram(t?.data || null);
     } catch (e: any) {
       setError(e.message || 'Failed to load');
     }
@@ -1595,6 +1600,19 @@ function IntegrationsAdmin({ adminRole }: { adminRole: 'owner' | 'admin' | null 
       setError(e.message || 'Failed to save');
     }
     setSavingKey(null);
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  const testTelegram = async () => {
+    setTestingTelegram(true);
+    setError(null);
+    try {
+      await adminConfigCall('test_telegram', {});
+      setToast('Test message sent');
+    } catch (e: any) {
+      setError(e.message || 'Test failed');
+    }
+    setTestingTelegram(false);
     setTimeout(() => setToast(null), 2500);
   };
 
@@ -1841,6 +1859,85 @@ function IntegrationsAdmin({ adminRole }: { adminRole: 'owner' | 'admin' | null 
             <Save className="h-4 w-4" />
             Save
           </button>
+        </div>
+      </div>
+
+      {/* Telegram */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-sky-50 text-sky-600">
+            <Send className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-slate-900">Telegram notifications</h3>
+            <p className="text-xs text-slate-500">Send order details to a Telegram chat/group/channel when a new order is placed.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Bot token</label>
+            <input
+              disabled={!isOwner}
+              type="password"
+              value={telegram?.bot_token || ''}
+              onChange={(e) => setTelegram({ ...telegram, bot_token: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="123456789:ABC-DEF..."
+            />
+            <p className="mt-1 text-xs text-slate-500">Get this from <span className="font-medium">@BotFather</span> on Telegram.</p>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Chat ID</label>
+            <input
+              disabled={!isOwner}
+              value={telegram?.chat_id || ''}
+              onChange={(e) => setTelegram({ ...telegram, chat_id: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 disabled:bg-slate-50"
+              placeholder="-1001234567890"
+            />
+            <p className="mt-1 text-xs text-slate-500">Channel: <span className="font-mono">-100…</span>. Group: negative. DM: your user ID.</p>
+          </div>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              disabled={!isOwner}
+              checked={!!telegram?.enabled}
+              onChange={(e) => setTelegram({ ...telegram, enabled: e.target.checked })}
+            />
+            <span className="text-sm font-medium text-slate-700">Enabled</span>
+          </label>
+        </div>
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <button
+            disabled={!isOwner || testingTelegram || !telegram?.bot_token || !telegram?.chat_id}
+            onClick={testTelegram}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {testingTelegram ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Send test message
+          </button>
+          <button
+            disabled={!isOwner || savingKey === 'telegram'}
+            onClick={() => save('telegram', 'update_telegram', {
+              bot_token: telegram?.bot_token || '',
+              chat_id: telegram?.chat_id || '',
+              enabled: !!telegram?.enabled,
+            })}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-60"
+          >
+            {savingKey === 'telegram' && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Save className="h-4 w-4" />
+            Save
+          </button>
+        </div>
+        <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-xs text-slate-600">
+          <p className="mb-1 font-semibold text-slate-700">Setup steps:</p>
+          <ol className="list-decimal space-y-0.5 pl-5">
+            <li>Open Telegram, search <span className="font-medium">@BotFather</span>, send <span className="font-mono">/newbot</span> and follow prompts to create a bot. Copy the bot token.</li>
+            <li>Add the bot to your channel/group as an admin (or start a DM with the bot).</li>
+            <li>Find the chat ID: forward a message from your chat to <span className="font-medium">@userinfobot</span> or use the Telegram Bot API <span className="font-mono">getUpdates</span> endpoint.</li>
+            <li>Paste the bot token and chat ID here, enable, and click Save. Use "Send test message" to verify.</li>
+          </ol>
         </div>
       </div>
     </div>
