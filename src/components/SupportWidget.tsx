@@ -52,11 +52,12 @@ export default function SupportWidget() {
     const text = input.trim();
     if (!text || loading) return;
     setInput('');
+    const history = messages.map((m) => ({ role: m.role, content: m.text }));
     setMessages((m) => [...m, { role: 'user', text }]);
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('ai-chat', {
-        body: { message: text, user_email: user?.email || null },
+        body: { message: text, history, user_email: user?.email || null },
       });
       if (error || !data?.ok) {
         setMessages((m) => [...m, { role: 'bot', text: 'Sorry, I had trouble responding. Please try again or contact us via WhatsApp/Telegram.' }]);
@@ -82,34 +83,40 @@ export default function SupportWidget() {
 
   return (
     <>
-      {/* Floating button */}
+      {/* Floating button — always visible on storefront */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-20 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 lg:bottom-6"
-          aria-label="Open support"
+          className="group fixed bottom-24 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-3.5 text-sm font-bold text-white shadow-xl shadow-emerald-500/40 ring-4 ring-emerald-500/20 transition hover:bg-emerald-400 hover:ring-emerald-500/30 active:scale-95 lg:bottom-6 lg:px-5 lg:py-4"
+          aria-label="Open support chat"
         >
-          <MessageCircle className="h-5 w-5" />
+          <span className="relative flex h-5 w-5 items-center justify-center">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/40 opacity-75"></span>
+            <MessageCircle className="relative h-5 w-5" />
+          </span>
           <span className="hidden sm:inline">Support</span>
         </button>
       )}
 
       {/* Panel */}
       {open && (
-        <div className="fixed inset-x-2 bottom-2 z-50 mx-auto max-w-sm sm:right-4 sm:left-auto sm:bottom-6 sm:inset-x-auto">
-          <div className="flex h-[70vh] max-h-[560px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="fixed inset-x-0 bottom-0 z-50 sm:inset-x-auto sm:right-4 sm:bottom-6 sm:w-96">
+          <div className="flex h-[75vh] max-h-[600px] flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:rounded-3xl">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-3 text-white">
-              <div className="flex items-center gap-2">
-                <div className="grid h-8 w-8 place-items-center rounded-full bg-white/20">
-                  <Bot className="h-4 w-4" />
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-9 w-9 place-items-center rounded-full bg-white/20">
+                  <Bot className="h-5 w-5" />
                 </div>
                 <div>
                   <p className="text-sm font-bold leading-tight">VoltBot Support</p>
-                  <p className="text-[11px] text-white/80">{config?.ai_enabled ? 'AI online · typically replies instantly' : 'Online'}</p>
+                  <p className="flex items-center gap-1 text-[11px] text-white/85">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-300"></span>
+                    {config?.ai_enabled ? 'AI online · typically replies instantly' : 'Online'}
+                  </p>
                 </div>
               </div>
-              <button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-white/20">
+              <button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-full transition hover:bg-white/20">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -131,8 +138,10 @@ export default function SupportWidget() {
                   <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700">
                     <Bot className="h-3.5 w-3.5" />
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                  <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-500">
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '0ms' }}></span>
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '150ms' }}></span>
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '300ms' }}></span>
                   </div>
                 </div>
               )}
@@ -146,7 +155,7 @@ export default function SupportWidget() {
                     href={whatsappUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
                   >
                     WhatsApp
                     <ExternalLink className="h-3 w-3" />
@@ -157,7 +166,7 @@ export default function SupportWidget() {
                     href={telegramUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
                   >
                     Telegram
                     <ExternalLink className="h-3 w-3" />
@@ -176,12 +185,12 @@ export default function SupportWidget() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask about products, orders, payments..."
-                  className="flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:bg-white"
+                  className="flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:bg-white"
                 />
                 <button
                   type="submit"
                   disabled={loading || !input.trim()}
-                  className="grid h-9 w-9 place-items-center rounded-full bg-emerald-500 text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                  className="grid h-10 w-10 place-items-center rounded-full bg-emerald-500 text-white transition hover:bg-emerald-400 active:scale-95 disabled:opacity-50"
                 >
                   <Send className="h-4 w-4" />
                 </button>

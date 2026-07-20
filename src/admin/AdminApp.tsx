@@ -2015,9 +2015,10 @@ function IntegrationsAdmin({ adminRole }: { adminRole: 'owner' | 'admin' | null 
           </button>
         </div>
         <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-          The AI chat is 100% free — it uses a built-in rule-based assistant that answers questions about your
-          products, pricing, delivery, payments, refunds, and (if the customer is signed in) their order status.
-          No external API key or billing is required.
+          The AI chat is 100% free — it uses the public Pollinations AI API (no API key, no signup, no billing).
+          It answers questions about your products, pricing, delivery, payments, refunds, and (if the customer
+          is signed in) their order status. The AI is context-aware: it sees your catalog and the customer's
+          recent orders.
         </p>
       </div>
     </div>
